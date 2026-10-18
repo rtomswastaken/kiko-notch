@@ -1,0 +1,8 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+*.sqlite3
+*.sqlite3-journal

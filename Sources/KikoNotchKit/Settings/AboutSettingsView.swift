@@ -1,0 +1,46 @@
+import SwiftUI
+
+/// About tab with monochrome branding, version info, and privacy summary
+public struct AboutSettingsView: View {
+    public init() {}
+    
+    public var body: some View {
+        VStack(spacing: 20) {
+            // Official Monochrome Logo
+            BrandAssets.MonochromeLogoView(size: 48, color: .primary)
+                .padding(.top, 16)
+            
+            VStack(spacing: 4) {
+                Text(BrandAssets.appName)
+                    .font(.system(size: 20, weight: .bold))
+                
+                Text("Version \(BrandAssets.appVersion) (\(BrandAssets.appBuild))")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            
+            Divider()
+                .padding(.horizontal, 32)
+            
+            VStack(spacing: 8) {
+                Text("Privacy & Security Architecture")
+                    .font(.system(size: 13, weight: .semibold))
+                
+                Text("Kiko Notch runs entirely locally on your Mac. No telemetry, no background tracking, and no external analytics. Audio visualizer operates via mathematical spectral simulation without capturing or accessing your microphone. Staged files in the File Shelf are kept as secure local references and are never uploaded or copied without your explicit action.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            
+            Spacer()
+            
+            Text(BrandAssets.copyrightNotice)
+                .font(.system(size: 10))
+                .foregroundColor(.secondary.opacity(0.8))
+                .padding(.bottom, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(16)
+    }
+}
