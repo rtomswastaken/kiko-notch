@@ -146,5 +146,11 @@ public final class FeatureRegistry: ObservableObject {
             name: "Notifications & Alerts",
             summary: "UserNotifications integration and in-island alert banner presentation."
         ))
+        
+        register(SystemMetricsModule(), metadata: FeatureMetadata(
+            id: .systemMetrics,
+            name: "System Metrics",
+            summary: "Live Darwin CPU, memory, storage, and GPU telemetry with bounded history."
+        ))
     }
 }

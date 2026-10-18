@@ -50,6 +50,7 @@ public struct FeatureToggleSettingsView: View {
         case .clipboard: return "Clipboard History & Actions"
         case .aiDashboard: return "AI Intelligence Dashboard"
         case .customActions: return "Customizable Function Buttons"
+        case .systemMetrics: return "System Metrics & Live Telemetry"
         }
     }
 }

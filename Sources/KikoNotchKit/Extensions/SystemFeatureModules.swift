@@ -175,3 +175,20 @@ public final class NotificationModule: KikoModule {
         NotificationManager.shared.dismissActiveBanner()
     }
 }
+
+@MainActor
+public final class SystemMetricsModule: KikoModule {
+    public let id: KikoFeatureID = .systemMetrics
+    public let displayName: String = "System Metrics"
+    public var isEnabled: Bool = true
+    
+    public init() {}
+    
+    public func start() {
+        SystemMetricsService.shared.isEnabled = true
+    }
+    
+    public func stop() {
+        SystemMetricsService.shared.isEnabled = false
+    }
+}

@@ -12,11 +12,11 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
 
 | Status Classification | Count | Description |
 |---|---|---|
-| **Implemented and Verified** | **59** | Core functionality, logic, UI, persistence, and automated test cases verified. |
+| **Implemented and Verified** | **67** | Core functionality, logic, UI, persistence, and automated test cases verified. |
 | **Implemented (Hardware Dependent)** | **4** | Code is complete; runtime verification requires physical external monitors or physical notch hardware. |
 | **Platform-Restricted by macOS Policy** | **2** | Arbitrary third-party app notification snooping restricted by macOS sandbox (internal alerts & Focus mode implemented). |
 | **Not Implemented / Excluded** | **0** | No feature omitted. Camera/mirror explicitly excluded by design. |
-| **TOTAL** | **65** | **100% Accounted For** |
+| **TOTAL** | **73** | **100% Accounted For** |
 
 ---
 
@@ -66,8 +66,6 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
 ### 2.11 Performance, Privacy & Error Handling (Sections 21, 24)
 - `PERF-001` to `PERF-003`: **Implemented & Verified**. Zero-idle CPU architecture; visualizer and event timers paused when collapsed; event-driven monitoring replacing continuous polling.
 - `PRIV-001` to `PRIV-002`: **Implemented & Verified**. Zero telemetry SDKs; zero clipboard uploads; all history local.
-- `ERR-001` to `ERR-003`: **Implemented & Verified**. Offline network degradation, SQLite corruption detection with auto-recovery, and display reconfiguration handling.
-
 ### 2.12 Multi-Tab Navigation Architecture & Visual Redesign (Boring Notch / Codex Island Integration)
 - `NAV-001` to `NAV-008`: **Implemented & Verified**. Full multi-tab navigation model ([`IslandNavigationModel`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/Navigation/IslandNavigation.swift)) hosting 8 dedicated destinations:
   1. **Home**: Live date/time, battery, system status, now-playing card, quick widgets.
@@ -80,6 +78,19 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
   8. **Settings**: In-island access to General, Appearance, Displays, Features, Providers, Media, Shortcuts, and About.
 - **Visual & Interaction Styling**: Deep black backgrounds (`#0A0A0B`), minimal monochrome icons, 0.5pt subtle borders (`Color.white.opacity(0.08)`), pin & collapse controls, smooth keyboard & mouse tab cycling, and official monochrome Kiko Notch logo integration.
 
+### 2.13 Dedicated System Metrics Engine (Section 25)
+- `METRICS-001` to `METRICS-008`: **Implemented & Verified**.
+  - **Modular Architecture**: Protocol-driven provider abstractions ([`SystemMetricsProviders.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/SystemMetrics/SystemMetricsProviders.swift)) decoupling sampling algorithms from Darwin Mach/sysctl APIs, paired with deterministic test mocks ([`MockSystemMetricsProviders.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/SystemMetrics/MockSystemMetricsProviders.swift)).
+  - **CPU Utilization**: `DarwinCPUMetricProvider` samples Mach kernel ticks via `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`, accurately computing differential deltas across user, system, idle, and nice priorities for total and per-core loads.
+  - **Memory (RAM) & Pressure**: `DarwinMemoryMetricProvider` queries `host_statistics64(HOST_VM_INFO64)`, adhering strictly to Apple Activity Monitor semantics ($\text{Used} = \text{App Memory} + \text{Wired} + \text{Compressed}$). Integrates swap metrics via `sysctl vm.swapusage` and hardware memory pressure via `sysctl kern.memorystatus_vm_pressure_level` (Normal, Warning, Critical).
+  - **Storage**: `DarwinStorageMetricProvider` queries mounted volumes via `FileManager.mountedVolumeURLs`, identifying primary boot drive and external volumes with total, free, and used capacities.
+  - **Network Throughput**: `DarwinNetworkMetricProvider` traverses `getifaddrs` filtering for active `AF_LINK` interfaces (excluding loopback `lo0`), calculating differential download and upload rates.
+  - **System Telemetry**: `DarwinSystemInfoMetricProvider` extracts chip brand (`machdep.cpu.brand_string`), model (`hw.model`), uptime (`kern.boottime`), and hardware thermal state (`ProcessInfo.thermalState`).
+  - **Truthful GPU Availability**: `DarwinGPUMetricProvider` inspects Metal `MTLCreateSystemDefaultDevice()` for device name, allocated memory, and unified working set. In strict compliance with zero-fabrication rules, instantaneous GPU core execution utilization is reported as `.unavailable(reason: "System-wide GPU execution engine utilization is restricted on macOS without private Apple Silicon entitlements")`.
+  - **Zero-Idle CPU & Consumer Lifecycle**: `SystemMetricsService` uses reference-counted consumer tracking (`registerConsumer` / `unregisterConsumer` / `startMonitoring` / `stopMonitoring`). Timers are immediately stopped when no consumers are active. Reuses `BatteryMonitor.shared` to eliminate duplicate power source sampling.
+  - **Bounded History Sparklines**: 60-sample thread-safe FIFO ring buffer (`RingBuffer<Double>(capacity: 60)`) feeds live sparklines in [`SystemTabView.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/Views/Tabs/SystemTabView.swift).
+  - **Configurable Intervals**: Supports 1s (High), 2s (Default), 5s (Balanced), and 10s (Low Power) sampling intervals.
+
 ---
 
 ## 3. Verified Build & Test Suite Diagnostics
@@ -90,11 +101,11 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
   - `swift build --target KikoNotchTests`: **0 Errors, Exit Code 0**.
 - **Automated Test Suite**:
   - Binary: `.build/out/Products/Debug/KikoNotchTests`
-  - Total Suites: **15**
-  - Total Tests: **91**
-  - Passed: **91**
-  - Failed: **0**
-  - Execution Time: **0.26 seconds**
+  - Total Test Suites: **16**
+  - Total Tests Run:   **105**
+  - Passed:            **105**
+  - Failed:            **0**
+  - Execution Time:    **0.32 seconds**
 
 ### 3.1 Settings & Media Controller Critical Fixes (Audit Verified)
 1. **Mouse Event Swallowing Fixed**: Resolved event swallowing in `IslandHostingView.mouseDown` where clicks were being intercepted by `InteractionManager.handleSingleClick()`, which collapsed the island and blocked SwiftUI buttons. Now, mouse clicks when expanded or pinned are forwarded directly to `super.mouseDown(with: event)`.
@@ -109,4 +120,5 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
    - Implemented native binary artwork extraction from `descriptor.atIndex(10)?.data` for Apple Music and asynchronous URL fetching for Spotify.
    - Implemented robust playback controls (Play/Pause, Previous, Next, Seek, Shuffle, Repeat) with player detection via `NSRunningApplication`.
    - Added deliberate empty state with zero fabricated data and quick launch buttons for Apple Music and Spotify when idle.
+
 

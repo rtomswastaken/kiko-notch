@@ -42,7 +42,8 @@ let testClasses: [XCTestCase.Type] = [
     WeatherTests.self,
     SystemIntegrationTests.self,
     AIProviderTests.self,
-    NavigationTests.self
+    NavigationTests.self,
+    SystemMetricsTests.self
 ]
 
 var totalTests = 0

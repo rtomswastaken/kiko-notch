@@ -2,7 +2,14 @@ import SwiftUI
 import AppKit
 import Combine
 
-/// Dedicated System Status, Telemetry & Hardware Control Tab View
+public enum SystemTabSection: String, CaseIterable, Identifiable {
+    case metrics = "Metrics"
+    case controls = "Controls"
+    
+    public var id: String { rawValue }
+}
+
+/// Dedicated System Status & Hardware Control Tab View
 public struct SystemTabView: View {
     @ObservedObject public var metricsService = SystemMetricsService.shared
     @ObservedObject public var batteryMonitor = BatteryMonitor.shared
@@ -13,136 +20,192 @@ public struct SystemTabView: View {
     @ObservedObject public var downloadMonitor = DownloadMonitor.shared
     @ObservedObject public var themeManager = ThemeManager.shared
     
+    @State private var activeSection: SystemTabSection = .metrics
+    
     public init() {}
     
     public var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 12) {
-                // Header
-                HStack {
-                    HStack(spacing: 6) {
-                        Image(systemName: "gauge.with.needle.fill")
-                            .font(.system(size: 13))
-                            .foregroundColor(themeManager.primaryTextColor)
-                        Text("System & Telemetry")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(themeManager.primaryTextColor)
-                    }
-                    
-                    Spacer()
-                    
-                    if metricsService.isMonitoring {
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 6, height: 6)
-                            Text("Live")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(themeManager.secondaryTextColor)
-                        }
-                    }
+                // Section Picker & Header
+                headerBar
+                
+                if activeSection == .metrics {
+                    systemMetricsContent
+                } else {
+                    systemControlsContent
                 }
-                .padding(.horizontal, 4)
-                
-                // MARK: - Telemetry Metrics Dashboard
-                
-                // 1. CPU Utilization & Sparkline Card
-                cpuMetricsCard
-                
-                // 2. RAM Usage & Memory Pressure Card
-                memoryMetricsCard
-                
-                // 3. Storage Capacity Card
-                storageMetricsCard
-                
-                // 4. Network Throughput Card
-                networkThroughputCard
-                
-                // 5. Hardware & GPU Specifications Card
-                hardwareSpecsCard
-                
-                // MARK: - Hardware Controls & Peripherals
-                
-                // 6. Battery & Power Card
-                batteryCard
-                
-                // 7. Hardware Sliders: Brightness, Backlight, Audio
-                hardwareSlidersCard
-                
-                // 8. Bluetooth Peripherals Card
-                bluetoothCard
-                
-                // 9. Active Browser Downloads (if any)
-                downloadsCard
             }
             .padding(.horizontal, 4)
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
         }
         .onAppear {
-            metricsService.startMonitoring(consumerID: "SystemTabView")
+            metricsService.registerConsumer(id: "SystemTabView")
         }
         .onDisappear {
-            metricsService.stopMonitoring(consumerID: "SystemTabView")
+            metricsService.unregisterConsumer(id: "SystemTabView")
+        }
+    }
+    
+    // MARK: - Header Bar
+    
+    private var headerBar: some View {
+        HStack {
+            // Segmented Section Switcher
+            HStack(spacing: 4) {
+                ForEach(SystemTabSection.allCases) { section in
+                    Button(action: { activeSection = section }) {
+                        Text(section.rawValue)
+                            .font(.system(size: 11, weight: activeSection == section ? .semibold : .medium))
+                            .foregroundColor(activeSection == section ? .white : themeManager.secondaryTextColor)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(activeSection == section ? Color.accentColor.opacity(0.8) : Color.white.opacity(0.06))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            
+            Spacer()
+            
+            if activeSection == .metrics {
+                // Sampling Interval Menu & Refresh
+                HStack(spacing: 6) {
+                    Menu {
+                        ForEach(SamplingInterval.allCases) { interval in
+                            Button(interval.displayName) {
+                                metricsService.samplingInterval = interval
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 2) {
+                            Circle()
+                                .fill(metricsService.isMonitoring ? Color.green : Color.gray)
+                                .frame(width: 6, height: 6)
+                            Text("\(Int(metricsService.samplingInterval.rawValue))s")
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.white.opacity(0.06)))
+                    }
+                    .menuStyle(.borderlessButton)
+                    .frame(width: 46)
+                    
+                    Button(action: {
+                        metricsService.sampleNow()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                            .foregroundColor(themeManager.secondaryTextColor)
+                            .padding(4)
+                            .background(Circle().fill(Color.white.opacity(0.06)))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh metrics immediately")
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+    
+    // MARK: - System Metrics Content
+    
+    private var systemMetricsContent: some View {
+        let snap = metricsService.snapshot
+        
+        return VStack(spacing: 10) {
+            // CPU Utilization Card
+            cpuMetricsCard(cpu: snap.cpu)
+            
+            // Memory (RAM) Card
+            memoryMetricsCard(memory: snap.memory)
+            
+            // GPU Card (Truthful API Limitations)
+            gpuMetricsCard(gpu: snap.gpu)
+            
+            // Storage Capacity Card
+            storageMetricsCard(storage: snap.storage)
+            
+            // System Telemetry & Network Card
+            systemTelemetryCard(sys: snap.systemInfo, net: snap.network)
         }
     }
     
     // MARK: - CPU Card
     
-    private var cpuMetricsCard: some View {
-        VStack(spacing: 8) {
+    private func cpuMetricsCard(cpu: CPUMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label("CPU Utilization", systemImage: "cpu")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(themeManager.primaryTextColor)
                 Spacer()
                 
-                if let cpu = metricsService.currentSnapshot.cpu.value {
-                    Text(String(format: "%.1f%% · %d Cores", cpu.totalUsagePercentage, cpu.coreCount))
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
+                if cpu.status.isAvailable {
+                    Text(String(format: "%.1f%%", cpu.totalUsagePercentage))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(themeManager.primaryTextColor)
                 } else {
-                    Text("Sampling...")
+                    Text(cpu.status == .loading ? "Loading..." : "Unavailable")
                         .font(.system(size: 10))
                         .foregroundColor(themeManager.secondaryTextColor)
                 }
             }
             
-            // Historical Sparkline Graph
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.white.opacity(0.02))
-                    .frame(height: 38)
+            if cpu.status.isAvailable {
+                ProgressView(value: cpu.totalUsagePercentage, total: 100.0)
+                    .tint(cpu.totalUsagePercentage > 85.0 ? .red : (cpu.totalUsagePercentage > 60.0 ? .orange : .accentColor))
                 
-                if metricsService.cpuHistory.count >= 2 {
-                    SparklineView(data: metricsService.cpuHistory, maxValue: 100.0, lineColor: .blue)
-                        .frame(height: 34)
-                        .padding(.horizontal, 4)
-                } else {
-                    HStack {
-                        Spacer()
-                        Text("Gathering history...")
-                            .font(.system(size: 9))
-                            .foregroundColor(themeManager.secondaryTextColor.opacity(0.6))
-                        Spacer()
-                    }
-                    .frame(height: 38)
-                }
-            }
-            
-            // User vs System breakdown
-            if let cpu = metricsService.currentSnapshot.cpu.value {
                 HStack {
                     Text(String(format: "User: %.1f%%", cpu.userPercentage))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(themeManager.secondaryTextColor)
                     Spacer()
-                    Text(String(format: "System: %.1f%%", cpu.systemPercentage))
+                    Text(String(format: "Sys: %.1f%%", cpu.systemPercentage))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(themeManager.secondaryTextColor)
                     Spacer()
                     Text(String(format: "Idle: %.1f%%", cpu.idlePercentage))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(themeManager.secondaryTextColor)
+                }
+                
+                // Mini Core Load Visualizer
+                if !cpu.coreLoads.isEmpty {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("CORES (\(cpu.coreLoads.count))")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(themeManager.secondaryTextColor.opacity(0.8))
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: min(cpu.coreLoads.count, 8)), spacing: 3) {
+                            ForEach(cpu.coreLoads) { core in
+                                ProgressView(value: core.totalUsagePercentage, total: 100.0)
+                                    .tint(core.totalUsagePercentage > 80.0 ? .red : .accentColor)
+                                    .scaleEffect(x: 1, y: 0.6, anchor: .center)
+                            }
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+                
+                // Historical Sparkline
+                if !metricsService.cpuHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text("HISTORY (60 SAMPLES)")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(themeManager.secondaryTextColor.opacity(0.8))
+                            Spacer()
+                        }
+                        SparklineView(data: metricsService.cpuHistory, maxVal: 100.0, color: .accentColor)
+                            .frame(height: 18)
+                    }
+                    .padding(.top, 4)
                 }
             }
         }
@@ -153,50 +216,103 @@ public struct SystemTabView: View {
     
     // MARK: - Memory Card
     
-    private var memoryMetricsCard: some View {
-        VStack(spacing: 8) {
+    private func memoryMetricsCard(memory: MemoryMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label("Memory (RAM)", systemImage: "memorychip")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(themeManager.primaryTextColor)
                 Spacer()
                 
-                if let mem = metricsService.currentSnapshot.memory.value {
-                    HStack(spacing: 4) {
-                        Text("\(mem.formattedUsed) / \(mem.formattedTotal)")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundColor(themeManager.secondaryTextColor)
-                        
-                        // Pressure level badge
-                        Text(mem.pressureLevel.rawValue)
-                            .font(.system(size: 8, weight: .bold))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(pressureBadgeColor(mem.pressureLevel).opacity(0.2))
-                            .foregroundColor(pressureBadgeColor(mem.pressureLevel))
-                            .cornerRadius(4)
+                if memory.status.isAvailable {
+                    Text(String(format: "%.1f%%", memory.usagePercentage))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(themeManager.primaryTextColor)
+                }
+            }
+            
+            if memory.status.isAvailable && memory.totalBytes > 0 {
+                ProgressView(value: Double(memory.usedBytes), total: Double(memory.totalBytes))
+                    .tint(memory.pressureLevel == .critical ? .red : (memory.pressureLevel == .warning ? .yellow : .accentColor))
+                
+                HStack {
+                    Text("\(formatBytes(memory.usedBytes)) of \(formatBytes(memory.totalBytes)) Used")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                    Spacer()
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(pressureColor(memory.pressureLevel))
+                            .frame(width: 5, height: 5)
+                        Text(memory.pressureLevel.rawValue)
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(pressureColor(memory.pressureLevel))
                     }
-                } else {
-                    Text("Sampling...")
-                        .font(.system(size: 10))
+                }
+                
+                if memory.swapTotalBytes > 0 {
+                    HStack {
+                        Text("Swap: \(formatBytes(memory.swapUsedBytes)) / \(formatBytes(memory.swapTotalBytes))")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(themeManager.secondaryTextColor.opacity(0.8))
+                        Spacer()
+                    }
+                }
+                
+                if !metricsService.memoryHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        SparklineView(data: metricsService.memoryHistory, maxVal: 100.0, color: .purple)
+                            .frame(height: 16)
+                    }
+                    .padding(.top, 2)
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+    }
+    
+    // MARK: - GPU Card
+    
+    private func gpuMetricsCard(gpu: GPUMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("GPU & Metal", systemImage: "sparkles.rectangle.stack")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(themeManager.primaryTextColor)
+                Spacer()
+                
+                Text(gpu.name)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(themeManager.secondaryTextColor)
+                    .lineLimit(1)
+            }
+            
+            HStack {
+                if let maxWorkingSet = gpu.recommendedMaxWorkingSetBytes, maxWorkingSet > 0 {
+                    Text("Working Set: \(formatBytes(maxWorkingSet))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                }
+                Spacer()
+                if let allocated = gpu.allocatedBytes {
+                    Text("Allocated: \(formatBytes(allocated))")
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(themeManager.secondaryTextColor)
                 }
             }
             
-            if let mem = metricsService.currentSnapshot.memory.value {
-                ProgressView(value: mem.usagePercentage, total: 100.0)
-                    .tint(pressureBadgeColor(mem.pressureLevel))
-                
-                HStack {
-                    Text("Free: \(mem.formattedFree)")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                    Spacer()
-                    Text("Swap: \(mem.formattedSwap)")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                }
+            // Truthful GPU Utilization indicator
+            HStack(spacing: 4) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 8))
+                    .foregroundColor(themeManager.secondaryTextColor.opacity(0.7))
+                Text("Utilization: Unavailable (Requires private Apple Silicon entitlements)")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundColor(themeManager.secondaryTextColor.opacity(0.7))
             }
+            .padding(.top, 2)
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
@@ -205,238 +321,93 @@ public struct SystemTabView: View {
     
     // MARK: - Storage Card
     
-    private var storageMetricsCard: some View {
-        VStack(spacing: 8) {
+    private func storageMetricsCard(storage: StorageMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("Storage", systemImage: "internaldrive")
+                Label("Disk Storage", systemImage: "internaldrive")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(themeManager.primaryTextColor)
                 Spacer()
                 
-                if let stor = metricsService.currentSnapshot.storage.value {
-                    Text("\(stor.formattedUsed) used of \(stor.formattedTotal)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                } else {
-                    Text("Sampling...")
-                        .font(.system(size: 10))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                }
-            }
-            
-            if let stor = metricsService.currentSnapshot.storage.value {
-                ProgressView(value: stor.usedPercentage, total: 100.0)
-                    .tint(.purple)
-                
-                HStack {
-                    Text("Free: \(stor.formattedFree)")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                    Spacer()
-                    Text(String(format: "%.1f%% Used", stor.usedPercentage))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                }
-            }
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
-    }
-    
-    // MARK: - Network Card
-    
-    private var networkThroughputCard: some View {
-        VStack(spacing: 6) {
-            HStack {
-                Label("Network Throughput", systemImage: "network")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(themeManager.primaryTextColor)
-                Spacer()
-            }
-            
-            if let net = metricsService.currentSnapshot.network.value {
-                HStack {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.down")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.green)
-                        Text(net.formattedDownloadSpeed)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundColor(themeManager.primaryTextColor)
-                    }
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.blue)
-                        Text(net.formattedUploadSpeed)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundColor(themeManager.primaryTextColor)
-                    }
-                }
-                .padding(.top, 2)
-            } else {
-                Text("Sampling network interfaces...")
-                    .font(.system(size: 10))
-                    .foregroundColor(themeManager.secondaryTextColor)
-            }
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
-    }
-    
-    // MARK: - Hardware & GPU Specs Card
-    
-    private var hardwareSpecsCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label("Hardware & Graphics", systemImage: "macbook.and.iphone")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(themeManager.primaryTextColor)
-                Spacer()
-            }
-            
-            if let sys = metricsService.currentSnapshot.systemInfo.value {
-                HStack {
-                    Text(sys.modelName)
-                        .font(.system(size: 10, weight: .medium))
+                if let primary = storage.primaryVolume {
+                    Text(String(format: "%.1f%%", primary.usagePercentage))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(themeManager.primaryTextColor)
+                }
+            }
+            
+            if let primary = storage.primaryVolume {
+                ProgressView(value: Double(primary.usedBytes), total: Double(primary.totalBytes))
+                    .tint(primary.usagePercentage > 90.0 ? .red : .accentColor)
+                
+                HStack {
+                    Text("\(primary.name): \(formatBytes(primary.usedBytes)) of \(formatBytes(primary.totalBytes))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
                     Spacer()
+                    Text("\(formatBytes(primary.freeBytes)) free")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor.opacity(0.8))
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+    }
+    
+    // MARK: - System Telemetry Card
+    
+    private func systemTelemetryCard(sys: SystemInfoMetrics, net: NetworkMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("System & Network", systemImage: "network")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(themeManager.primaryTextColor)
+                Spacer()
+                
+                Text(sys.chipName)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(themeManager.secondaryTextColor)
+                    .lineLimit(1)
+            }
+            
+            HStack {
+                HStack(spacing: 3) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 8))
                     Text("Uptime: \(sys.formattedUptime)")
                         .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
                 }
+                .foregroundColor(themeManager.secondaryTextColor)
                 
-                HStack {
-                    Text(sys.osVersion)
-                        .font(.system(size: 9))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                    Spacer()
-                    Text("Thermal: \(sys.thermalStateDescription)")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(thermalBadgeColor(sys.thermalState))
-                }
-            }
-            
-            Divider().opacity(0.2)
-            
-            if let gpu = metricsService.currentSnapshot.gpu.value {
-                HStack {
-                    Text(gpu.modelName)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(themeManager.primaryTextColor)
-                    Spacer()
-                    Text(gpu.formattedMemory)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.secondaryTextColor)
-                }
-            }
-            
-            // GPU utilization honest status
-            HStack {
-                Text("GPU Utilization")
-                    .font(.system(size: 9))
-                    .foregroundColor(themeManager.secondaryTextColor)
                 Spacer()
-                if case .unavailable(let reason) = metricsService.currentSnapshot.gpuUtilization.status {
-                    Text(reason)
+                
+                HStack(spacing: 6) {
+                    Text("↓ \(formatRate(net.downloadBytesPerSecond))")
+                        .font(.system(size: 9, design: .monospaced))
+                    Text("↑ \(formatRate(net.uploadBytesPerSecond))")
+                        .font(.system(size: 9, design: .monospaced))
+                }
+                .foregroundColor(.accentColor)
+            }
+            
+            HStack {
+                HStack(spacing: 3) {
+                    Image(systemName: "flame.fill")
                         .font(.system(size: 8))
-                        .foregroundColor(themeManager.secondaryTextColor.opacity(0.7))
-                        .lineLimit(1)
-                } else if let util = metricsService.currentSnapshot.gpuUtilization.value {
-                    Text(String(format: "%.1f%%", util))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(themeManager.primaryTextColor)
+                        .foregroundColor(thermalColor(sys.thermalState))
+                    Text("Thermal: \(sys.thermalState.rawValue)")
+                        .font(.system(size: 9))
+                        .foregroundColor(thermalColor(sys.thermalState))
                 }
-            }
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
-    }
-    
-    // MARK: - Battery Card
-    
-    private var batteryCard: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Label("Battery Status", systemImage: batteryIcon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(themeManager.primaryTextColor)
+                
                 Spacer()
-                Text("\(batteryMonitor.currentState.percentage)% · \(batteryMonitor.currentState.powerSource)")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(themeManager.secondaryTextColor)
-            }
-            
-            ProgressView(value: Double(batteryMonitor.currentState.percentage), total: 100.0)
-                .tint(batteryMonitor.currentState.isCharging ? .green : (batteryMonitor.currentState.percentage < 20 ? .red : .accentColor))
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
-    }
-    
-    // MARK: - Hardware Sliders
-    
-    private var hardwareSlidersCard: some View {
-        VStack(spacing: 10) {
-            // Brightness Slider
-            HStack(spacing: 8) {
-                Image(systemName: "sun.max.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .frame(width: 16)
                 
-                Slider(value: Binding(
-                    get: { Double(brightnessMonitor.currentBrightness) },
-                    set: { brightnessMonitor.setSimulatedBrightness(Float($0)) }
-                ), in: 0.0...1.0)
-                
-                Text("\(Int(brightnessMonitor.currentBrightness * 100))%")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .frame(width: 32, alignment: .trailing)
-            }
-            
-            // Keyboard Backlight Slider
-            HStack(spacing: 8) {
-                Image(systemName: "light.ribbon")
-                    .font(.system(size: 11))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .frame(width: 16)
-                
-                Slider(value: Binding(
-                    get: { Double(kbdMonitor.currentBacklight) },
-                    set: { kbdMonitor.setSimulatedBacklight(Float($0)) }
-                ), in: 0.0...1.0)
-                
-                Text("\(Int(kbdMonitor.currentBacklight * 100))%")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .frame(width: 32, alignment: .trailing)
-            }
-            
-            // Audio Volume Slider
-            HStack(spacing: 8) {
-                Image(systemName: audioHUD.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .frame(width: 16)
-                
-                Slider(value: Binding(
-                    get: { Double(audioHUD.currentVolume) },
-                    set: { audioHUD.setSimulatedVolume(Float($0), muted: audioHUD.isMuted) }
-                ), in: 0.0...1.0)
-                
-                Text("\(Int(audioHUD.currentVolume * 100))%")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .frame(width: 32, alignment: .trailing)
+                Text(sys.osVersionString)
+                    .font(.system(size: 8))
+                    .foregroundColor(themeManager.secondaryTextColor.opacity(0.7))
+                    .lineLimit(1)
             }
         }
         .padding(10)
@@ -444,83 +415,188 @@ public struct SystemTabView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
     }
     
-    // MARK: - Bluetooth Card
+    // MARK: - System Controls Content (Existing Controls)
     
-    private var bluetoothCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label("Bluetooth Devices", systemImage: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(themeManager.primaryTextColor)
-                Spacer()
-            }
-            
-            if bluetoothMonitor.connectedDevices.isEmpty {
-                Text("No active Bluetooth peripherals connected")
-                    .font(.system(size: 10))
-                    .foregroundColor(themeManager.secondaryTextColor)
-                    .padding(.vertical, 4)
-            } else {
-                ForEach(bluetoothMonitor.connectedDevices) { device in
-                    HStack {
-                        Image(systemName: peripheralIcon(for: device.name))
-                            .font(.system(size: 10))
-                            .foregroundColor(.accentColor)
-                        Text(device.name)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(themeManager.primaryTextColor)
-                        Spacer()
-                        if let battery = device.batteryLevel {
-                            Text("\(battery)%")
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundColor(themeManager.secondaryTextColor)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
-    }
-    
-    // MARK: - Downloads Card
-    
-    @ViewBuilder
-    private var downloadsCard: some View {
-        if !downloadMonitor.activeDownloadsList.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
+    private var systemControlsContent: some View {
+        VStack(spacing: 12) {
+            // Battery & Power Card
+            VStack(spacing: 8) {
                 HStack {
-                    Label("Downloads Activity", systemImage: "arrow.down.circle.fill")
+                    Label("Battery Status", systemImage: batteryIcon)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(themeManager.primaryTextColor)
                     Spacer()
+                    Text("\(batteryMonitor.currentState.percentage)% · \(batteryMonitor.currentState.powerSource)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
                 }
                 
-                ForEach(downloadMonitor.activeDownloadsList) { item in
-                    VStack(spacing: 4) {
-                        HStack {
-                            Text(item.fileName)
-                                .font(.system(size: 11, weight: .medium))
-                                .lineLimit(1)
-                            Spacer()
-                            Text(item.formattedSpeed)
-                                .font(.system(size: 9))
-                                .foregroundColor(themeManager.secondaryTextColor)
-                        }
-                        ProgressView(value: item.progress)
-                    }
-                    .padding(.vertical, 2)
+                ProgressView(value: Double(batteryMonitor.currentState.percentage), total: 100.0)
+                    .tint(batteryMonitor.currentState.isCharging ? .green : (batteryMonitor.currentState.percentage < 20 ? .red : .accentColor))
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            
+            // Hardware Sliders: Brightness, Backlight & Audio
+            VStack(spacing: 10) {
+                // Brightness Slider
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.max.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .frame(width: 16)
+                    
+                    Slider(value: Binding(
+                        get: { Double(brightnessMonitor.currentBrightness) },
+                        set: { brightnessMonitor.setSimulatedBrightness(Float($0)) }
+                    ), in: 0.0...1.0)
+                    
+                    Text("\(Int(brightnessMonitor.currentBrightness * 100))%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .frame(width: 32, alignment: .trailing)
+                }
+                
+                // Keyboard Backlight Slider
+                HStack(spacing: 8) {
+                    Image(systemName: "light.ribbon")
+                        .font(.system(size: 11))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .frame(width: 16)
+                    
+                    Slider(value: Binding(
+                        get: { Double(kbdMonitor.currentBacklight) },
+                        set: { kbdMonitor.setSimulatedBacklight(Float($0)) }
+                    ), in: 0.0...1.0)
+                    
+                    Text("\(Int(kbdMonitor.currentBacklight * 100))%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .frame(width: 32, alignment: .trailing)
+                }
+                
+                // Audio Volume Slider
+                HStack(spacing: 8) {
+                    Image(systemName: audioHUD.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .frame(width: 16)
+                    
+                    Slider(value: Binding(
+                        get: { Double(audioHUD.currentVolume) },
+                        set: { audioHUD.setSimulatedVolume(Float($0), muted: audioHUD.isMuted) }
+                    ), in: 0.0...1.0)
+                    
+                    Text("\(Int(audioHUD.currentVolume * 100))%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .frame(width: 32, alignment: .trailing)
                 }
             }
             .padding(10)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            
+            // Bluetooth Peripherals Card
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Label("Bluetooth Devices", systemImage: "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(themeManager.primaryTextColor)
+                    Spacer()
+                }
+                
+                if bluetoothMonitor.connectedDevices.isEmpty {
+                    Text("No active Bluetooth peripherals connected")
+                        .font(.system(size: 10))
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(bluetoothMonitor.connectedDevices) { device in
+                        HStack {
+                            Image(systemName: peripheralIcon(for: device.name))
+                                .font(.system(size: 10))
+                                .foregroundColor(.accentColor)
+                            Text(device.name)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(themeManager.primaryTextColor)
+                            Spacer()
+                            if let battery = device.batteryLevel {
+                                Text("\(battery)%")
+                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                    .foregroundColor(themeManager.secondaryTextColor)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            
+            // Active Downloads
+            if !downloadMonitor.activeDownloadsList.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("Downloads Activity", systemImage: "arrow.down.circle.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(themeManager.primaryTextColor)
+                        Spacer()
+                    }
+                    
+                    ForEach(downloadMonitor.activeDownloadsList) { item in
+                        VStack(spacing: 4) {
+                            HStack {
+                                Text(item.fileName)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(item.formattedSpeed)
+                                    .font(.system(size: 9))
+                                    .foregroundColor(themeManager.secondaryTextColor)
+                            }
+                            ProgressView(value: item.progress)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            }
         }
     }
     
     // MARK: - Helpers
+    
+    private func formatBytes(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
+    
+    private func formatRate(_ bps: Double) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bps), countStyle: .file) + "/s"
+    }
+    
+    private func pressureColor(_ pressure: MemoryPressureLevel) -> Color {
+        switch pressure {
+        case .normal: return .green
+        case .warning: return .yellow
+        case .critical: return .red
+        case .unknown: return .gray
+        }
+    }
+    
+    private func thermalColor(_ state: ThermalStateLevel) -> Color {
+        switch state {
+        case .nominal: return .green
+        case .fair: return .yellow
+        case .serious: return .orange
+        case .critical: return .red
+        case .unknown: return .gray
+        }
+    }
     
     private var batteryIcon: String {
         let pct = batteryMonitor.currentState.percentage
@@ -539,60 +615,39 @@ public struct SystemTabView: View {
         if lower.contains("trackpad") { return "hand.tap.fill" }
         return "headphones"
     }
-    
-    private func pressureBadgeColor(_ level: MemoryPressureLevel) -> Color {
-        switch level {
-        case .normal: return .green
-        case .warning: return .orange
-        case .critical: return .red
-        case .unknown: return .gray
-        }
-    }
-    
-    private func thermalBadgeColor(_ state: ProcessInfo.ThermalState) -> Color {
-        switch state {
-        case .nominal: return .green
-        case .fair: return .yellow
-        case .serious: return .orange
-        case .critical: return .red
-        @unknown default: return .gray
-        }
-    }
 }
 
-// MARK: - Sparkline Vector View
-
+/// Lightweight sparkline view for bounded metric history
 public struct SparklineView: View {
     public let data: [Double]
-    public let maxValue: Double
-    public let lineColor: Color
+    public let maxVal: Double
+    public let color: Color
     
-    public init(data: [Double], maxValue: Double = 100.0, lineColor: Color = .blue) {
+    public init(data: [Double], maxVal: Double, color: Color) {
         self.data = data
-        self.maxValue = max(maxValue, 1.0)
-        self.lineColor = lineColor
+        self.maxVal = maxVal
+        self.color = color
     }
     
     public var body: some View {
         GeometryReader { geo in
-            if data.count >= 2 {
-                Path { path in
-                    let step = geo.size.width / CGFloat(max(data.count - 1, 1))
-                    for (index, value) in data.enumerated() {
-                        let normalized = min(max(value / maxValue, 0.0), 1.0)
-                        let y = geo.size.height * CGFloat(1.0 - normalized)
-                        let x = CGFloat(index) * step
-                        if index == 0 {
-                            path.move(to: CGPoint(x: x, y: y))
-                        } else {
-                            path.addLine(to: CGPoint(x: x, y: y))
-                        }
+            Path { path in
+                guard data.count > 1 else { return }
+                let step = geo.size.width / CGFloat(max(1, data.count - 1))
+                let height = geo.size.height
+                
+                for (i, val) in data.enumerated() {
+                    let normalized = maxVal > 0 ? CGFloat(min(maxVal, max(0.0, val)) / maxVal) : 0
+                    let y = height - (normalized * (height - 2.0)) - 1.0
+                    let x = CGFloat(i) * step
+                    if i == 0 {
+                        path.move(to: CGPoint(x: x, y: y))
+                    } else {
+                        path.addLine(to: CGPoint(x: x, y: y))
                     }
                 }
-                .stroke(lineColor, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-            } else {
-                EmptyView()
             }
+            .stroke(color, lineWidth: 1.5)
         }
     }
 }

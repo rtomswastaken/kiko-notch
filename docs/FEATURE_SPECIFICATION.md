@@ -324,15 +324,30 @@ Each feature is uniquely identified and tracks:
 
 ---
 
+### Section 26: System Metrics and Hardware Telemetry
+
+| Feature ID | Description | Agent | Dependencies | Status | Test Status | Limitations | Relevant Files | Acceptance Criteria |
+|---|---|---|---|---|---|---|---|---|
+| `METRICS-001` | Live CPU core utilization sampling via Darwin Mach `host_processor_info` | Sub-Agent 2 | None | IMPLEMENTED | UNIT_TESTED | Tick deltas require baseline sample | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsProviders.swift` | Calculates user, system, idle, and nice loads for overall and per-core CPU without polling loops. |
+| `METRICS-002` | Physical Memory (RAM) calculation matching Activity Monitor formulas | Sub-Agent 2 | None | IMPLEMENTED | UNIT_TESTED | `host_statistics64` | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsProviders.swift` | Computes App Memory, Wired, Compressed, and Free RAM; tracks swap and pressure levels. |
+| `METRICS-003` | Disk storage capacity and volume discovery via `FileManager.mountedVolumeURLs` | Sub-Agent 2 | None | IMPLEMENTED | UNIT_TESTED | None | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsProviders.swift` | Reports total, used, and free bytes for root and mounted external storage volumes accurately. |
+| `METRICS-004` | Metal GPU discovery and truthful utilization unavailability reporting | Sub-Agent 2 | None | IMPLEMENTED | UNIT_TESTED | Private entitlements required for GPU core execution rate | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsProviders.swift` | Identifies Metal device name and memory; strictly reports utilization as `.unavailable` rather than fabricating zeroes. |
+| `METRICS-005` | Zero-idle CPU consumer management (`registerConsumer` / `unregisterConsumer`) | Sub-Agent 2 | None | IMPLEMENTED | UNIT_TESTED | None | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsService.swift` | Suspends background sampling when no consumers are active, preventing battery and CPU drain. |
+| `METRICS-006` | Configurable sampling intervals (1s, 2s, 5s, 10s) with live timer reconfiguration | Sub-Agent 2 | `METRICS-005` | IMPLEMENTED | UNIT_TESTED | None | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsService.swift` | Allows users to select refresh rate; immediately updates timer interval when active. |
+| `METRICS-007` | Thread-safe bounded ring buffer history (60 samples) for vector sparklines | Sub-Agent 2 | None | IMPLEMENTED | UNIT_TESTED | Memory clamped | `Sources/KikoNotchKit/SystemMetrics/SystemMetricsModels.swift` | Preserves rolling 60-sample FIFO history for CPU and RAM; evicts oldest items cleanly. |
+| `METRICS-008` | Dedicated System Metrics tab in expanded island navigation | Sub-Agent 1 | `METRICS-001`–`METRICS-007` | IMPLEMENTED | INTEGRATION_TESTED | Navigation tab bar | `Sources/KikoNotchKit/Views/Tabs/SystemTabView.swift` | Renders high-fidelity cards for CPU, RAM, GPU, Storage, and Telemetry with live sparklines and controls. |
+
+---
+
 ## 4. Requirement Verification Matrix Summary
 
-- **Total Tracked Features**: 65 Core Functional Capabilities (represented across 113 granular matrix verification requirements in Sections 1–25)
-- **Sub-Agent 1 Ownership**: 28 Core Capabilities (Sections 1, 2, 3, 4, 5, 11, 14, 20 [UI], 22)
-- **Sub-Agent 2 Ownership**: 32 Core Capabilities (Sections 6, 7, 8, 9, 10, 12, 13, 15, 16, 17, 18, 19, 21, 23, 24)
+- **Total Tracked Features**: 73 Core Functional Capabilities (represented across 121 granular matrix verification requirements in Sections 1–26)
+- **Sub-Agent 1 Ownership**: 29 Core Capabilities (Sections 1, 2, 3, 4, 5, 11, 14, 20 [UI], 22, 26 [UI])
+- **Sub-Agent 2 Ownership**: 39 Core Capabilities (Sections 6, 7, 8, 9, 10, 12, 13, 15, 16, 17, 18, 19, 21, 23, 24, 26 [Backend])
 - **Shared / Final QA Agent Ownership**: 5 Core Capabilities (Sections 21, 23, 25)
 - **Audit Verification Status**:
-  * Total Features Implemented: **113 / 113 (100%)**
-  * Automated Unit / Integration Tests Passed: **82 / 82 (100%)** across 14 test suites
+  * Total Features Implemented: **121 / 121 (100%)**
+  * Automated Unit / Integration Tests Passed: **100 / 100 (100%)** across 16 test suites
   * Hardware-Dependent Items Requiring Physical Silicon Verification: **5 Items** (`CORE-002` physical notch bezel fitment, `SYS-002` physical DDC display keys, `SYS-003` physical keyboard backlight, `BATT-001` internal battery drain on laptops, `BT-001` real Bluetooth peripheral pairing)
   * Missing Features: **0**
   * Broken Tests: **0**

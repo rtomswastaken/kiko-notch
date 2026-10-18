@@ -16,6 +16,7 @@ public enum KikoFeatureID: String, CaseIterable, Codable, Sendable {
     case clipboard = "feature.clipboard"
     case aiDashboard = "feature.aiDashboard"
     case customActions = "feature.customActions"
+    case systemMetrics = "feature.systemMetrics"
 }
 
 /// Pluggable Extension & Module Interface
