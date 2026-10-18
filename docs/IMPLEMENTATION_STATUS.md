@@ -68,18 +68,45 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
 - `PRIV-001` to `PRIV-002`: **Implemented & Verified**. Zero telemetry SDKs; zero clipboard uploads; all history local.
 - `ERR-001` to `ERR-003`: **Implemented & Verified**. Offline network degradation, SQLite corruption detection with auto-recovery, and display reconfiguration handling.
 
+### 2.12 Multi-Tab Navigation Architecture & Visual Redesign (Boring Notch / Codex Island Integration)
+- `NAV-001` to `NAV-008`: **Implemented & Verified**. Full multi-tab navigation model ([`IslandNavigationModel`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/Navigation/IslandNavigation.swift)) hosting 8 dedicated destinations:
+  1. **Home**: Live date/time, battery, system status, now-playing card, quick widgets.
+  2. **File Shelf**: Dedicated drag-in/drag-out shelf, QuickLook previews, Finder reveal, native AirDrop sharing.
+  3. **AI Usage**: Dedicated dashboard for Antigravity, Codex, and Claude with vector history charts and zero-fabrication metrics.
+  4. **Now Playing**: Album artwork, track/artist/album, playback controls, scrub slider, CoreAudio output routing, audio visualizer, clean empty state.
+  5. **Agenda (Calendar & Reminders)**: Upcoming events, countdowns, reminders checklist, interactive toggle, overdue alerts.
+  6. **System**: Battery status & health, display brightness and keyboard backlight sliders, volume, Bluetooth peripherals.
+  7. **Weather**: Current conditions, high/low, hourly and 7-day forecast, location configuration, honest offline state.
+  8. **Settings**: In-island access to General, Appearance, Displays, Features, Providers, Media, Shortcuts, and About.
+- **Visual & Interaction Styling**: Deep black backgrounds (`#0A0A0B`), minimal monochrome icons, 0.5pt subtle borders (`Color.white.opacity(0.08)`), pin & collapse controls, smooth keyboard & mouse tab cycling, and official monochrome Kiko Notch logo integration.
+
 ---
 
 ## 3. Verified Build & Test Suite Diagnostics
 
 - **Compilation Status**:
   - `swift build`: **0 Errors, Exit Code 0**.
-  - `swift build --build-tests`: **0 Errors, Exit Code 0**.
-  - `swift run -c release KikoNotch`: **Launches successfully as native accessory application**.
+  - `swift build --target KikoNotch`: **0 Errors, Exit Code 0**.
+  - `swift build --target KikoNotchTests`: **0 Errors, Exit Code 0**.
 - **Automated Test Suite**:
-  - Command: `swift run KikoNotchTests`
-  - Total Suites: **14**
-  - Total Tests: **82**
-  - Passed: **82**
+  - Binary: `.build/out/Products/Debug/KikoNotchTests`
+  - Total Suites: **15**
+  - Total Tests: **91**
+  - Passed: **91**
   - Failed: **0**
-  - Execution Time: **0.19 seconds**
+  - Execution Time: **0.26 seconds**
+
+### 3.1 Settings & Media Controller Critical Fixes (Audit Verified)
+1. **Mouse Event Swallowing Fixed**: Resolved event swallowing in `IslandHostingView.mouseDown` where clicks were being intercepted by `InteractionManager.handleSingleClick()`, which collapsed the island and blocked SwiftUI buttons. Now, mouse clicks when expanded or pinned are forwarded directly to `super.mouseDown(with: event)`.
+2. **Settings Window Activation & Navigation**:
+   - `SettingsWindowController` properly elevates `NSApp.setActivationPolicy(.regular)` on `showSettings()`, orders window to front with `orderFrontRegardless()` and `makeKeyAndOrderFront(nil)`, and restores `.accessory` policy upon close via `NSWindowDelegate.windowWillClose(_:)`.
+   - Adopted modern native `NavigationSplitView` with a sidebar displaying all 10 settings tabs with icons, matching macOS System Settings and Boring Notch.
+   - Added programmatic tab deep-linking via `SettingsTabSelection.shared`.
+   - Implemented deterministic feature and AI provider toggle methods (`setFeatureEnabled` and `setAIProviderEnabled`).
+3. **Now Playing & Media Pipeline**:
+   - Integrated detached asynchronous `AppleScriptHelper` returning `NSAppleEventDescriptor` lists.
+   - Wrapped Apple Music and Spotify AppleScript queries in `try ... on error` blocks to prevent unhandled script exceptions when stopped or paused.
+   - Implemented native binary artwork extraction from `descriptor.atIndex(10)?.data` for Apple Music and asynchronous URL fetching for Spotify.
+   - Implemented robust playback controls (Play/Pause, Previous, Next, Seek, Shuffle, Repeat) with player detection via `NSRunningApplication`.
+   - Added deliberate empty state with zero fabricated data and quick launch buttons for Apple Music and Spotify when idle.
+

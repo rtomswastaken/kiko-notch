@@ -130,8 +130,10 @@ public final class DisplayManager: ObservableObject, @unchecked Sendable {
            let rightArea = screen.auxiliaryTopRightArea,
            leftArea.width > 0, rightArea.width > 0 {
             
-            let notchX = leftArea.maxX
-            let notchWidth = rightArea.minX - leftArea.maxX
+            // Proven Boring Notch anti-aliasing margin (+4pt width, centered -2pt on X)
+            let rawWidth = rightArea.minX - leftArea.maxX
+            let notchWidth = rawWidth + 4.0
+            let notchX = leftArea.maxX - 2.0
             let notchHeight = leftArea.height
             let notchY = screen.frame.maxY - notchHeight
             

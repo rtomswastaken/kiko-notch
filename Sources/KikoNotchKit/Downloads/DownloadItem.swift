@@ -12,6 +12,9 @@ public struct DownloadItem: Identifiable, Sendable, Equatable {
     public let filename: String
     public let targetFilename: String
     public let path: String
+    
+    public var fileName: String { filename }
+    
     public var state: DownloadState
     public var bytesDownloaded: Int64
     public var estimatedTotalBytes: Int64?

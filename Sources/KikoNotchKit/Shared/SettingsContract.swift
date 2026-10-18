@@ -23,8 +23,8 @@ public struct IslandGeometryConfig: Codable, Sendable, Equatable {
     public static let standard = IslandGeometryConfig(
         collapsedWidth: 185.0,
         collapsedHeight: 32.0,
-        expandedWidth: 420.0,
-        expandedHeight: 260.0,
+        expandedWidth: 460.0,
+        expandedHeight: 280.0,
         cornerRadius: 18.0,
         nonNotchOffsetY: 8.0
     )
@@ -152,6 +152,14 @@ public final class SettingsManager: ObservableObject, @unchecked Sendable {
         enabledFeatures.contains(id.rawValue)
     }
     
+    public func setFeatureEnabled(_ id: KikoFeatureID, enabled: Bool) {
+        if enabled {
+            enabledFeatures.insert(id.rawValue)
+        } else {
+            enabledFeatures.remove(id.rawValue)
+        }
+    }
+    
     public func toggleFeature(_ id: KikoFeatureID) {
         if enabledFeatures.contains(id.rawValue) {
             enabledFeatures.remove(id.rawValue)
@@ -162,6 +170,14 @@ public final class SettingsManager: ObservableObject, @unchecked Sendable {
     
     public func isAIProviderEnabled(_ id: AIProviderID) -> Bool {
         enabledAIProviders.contains(id.rawValue)
+    }
+    
+    public func setAIProviderEnabled(_ id: AIProviderID, enabled: Bool) {
+        if enabled {
+            enabledAIProviders.insert(id.rawValue)
+        } else {
+            enabledAIProviders.remove(id.rawValue)
+        }
     }
     
     public func toggleAIProvider(_ id: AIProviderID) {

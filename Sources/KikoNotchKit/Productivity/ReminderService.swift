@@ -9,6 +9,11 @@ public struct ReminderItem: Identifiable, Sendable, Equatable {
     public let isCompleted: Bool
     public let priority: Int
     
+    public var isOverdue: Bool {
+        guard let due = dueDate, !isCompleted else { return false }
+        return due < Date()
+    }
+    
     public init(id: String, title: String, dueDate: Date?, isCompleted: Bool, priority: Int = 0) {
         self.id = id
         self.title = title
@@ -96,6 +101,21 @@ public final class ReminderService: ObservableObject {
                 
                 self.reminders = items
             }
+        }
+    }
+    
+    /// Toggles completion state for a given reminder ID (PROD-004)
+    public func toggleCompleted(for id: String) async {
+        if let idx = reminders.firstIndex(where: { $0.id == id }) {
+            let current = reminders[idx]
+            let updated = ReminderItem(
+                id: current.id,
+                title: current.title,
+                dueDate: current.dueDate,
+                isCompleted: !current.isCompleted,
+                priority: current.priority
+            )
+            reminders[idx] = updated
         }
     }
     

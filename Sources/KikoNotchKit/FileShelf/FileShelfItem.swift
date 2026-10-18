@@ -10,6 +10,9 @@ public final class FileShelfItem: Identifiable, ObservableObject, @unchecked Sen
     public let fileSize: Int64
     public let dateAdded: Date
     
+    public var fileURL: URL { url }
+    public var fileName: String { name }
+    
     @Published public var thumbnail: NSImage?
     @Published public var exists: Bool
     

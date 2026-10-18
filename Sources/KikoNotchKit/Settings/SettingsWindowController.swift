@@ -33,99 +33,88 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     }
 }
 
-/// SwiftUI multi-tab settings root view
+/// Observable state for programmatically selecting active settings tabs
+public final class SettingsTabSelection: ObservableObject, @unchecked Sendable {
+    public static let shared = SettingsTabSelection()
+    @Published public var selectedTab: SettingsTab = .general
+}
+
+/// SwiftUI multi-tab settings root view with macOS NavigationSplitView sidebar
 public struct SettingsRootView: View {
-    @State private var selectedTab: SettingsTab = .general
+    @ObservedObject public var tabSelection = SettingsTabSelection.shared
     
     public init(initialTab: SettingsTab = .general) {
-        self._selectedTab = State(initialValue: initialTab)
+        tabSelection.selectedTab = initialTab
     }
     
     public var body: some View {
-        TabView(selection: $selectedTab) {
-            GeneralSettingsView()
-                .tabItem {
-                    Label(SettingsTab.general.rawValue, systemImage: SettingsTab.general.iconName)
+        NavigationSplitView {
+            List(SettingsTab.allCases, id: \.self, selection: $tabSelection.selectedTab) { tab in
+                NavigationLink(value: tab) {
+                    Label(tab.rawValue, systemImage: tab.iconName)
                 }
-                .tag(SettingsTab.general)
-            
-            AppearanceSettingsView()
-                .tabItem {
-                    Label(SettingsTab.appearance.rawValue, systemImage: SettingsTab.appearance.iconName)
+            }
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 160, ideal: 190, max: 220)
+        } detail: {
+            Group {
+                switch tabSelection.selectedTab {
+                case .general:
+                    GeneralSettingsView()
+                case .appearance:
+                    AppearanceSettingsView()
+                case .displays:
+                    DisplaySettingsView()
+                case .media:
+                    MediaSettingsView()
+                case .hud:
+                    HUDSettingsView()
+                case .ai:
+                    AIProvidersSettingsView()
+                case .weather:
+                    WeatherSettingsView()
+                case .clipboard:
+                    ClipboardSettingsView()
+                case .features:
+                    FeatureToggleSettingsView()
+                case .about:
+                    AboutSettingsView()
                 }
-                .tag(SettingsTab.appearance)
-            
-            DisplaySettingsView()
-                .tabItem {
-                    Label(SettingsTab.displays.rawValue, systemImage: SettingsTab.displays.iconName)
-                }
-                .tag(SettingsTab.displays)
-            
-            MediaSettingsView()
-                .tabItem {
-                    Label(SettingsTab.media.rawValue, systemImage: SettingsTab.media.iconName)
-                }
-                .tag(SettingsTab.media)
-            
-            HUDSettingsView()
-                .tabItem {
-                    Label(SettingsTab.hud.rawValue, systemImage: SettingsTab.hud.iconName)
-                }
-                .tag(SettingsTab.hud)
-            
-            AIProvidersSettingsView()
-                .tabItem {
-                    Label(SettingsTab.ai.rawValue, systemImage: SettingsTab.ai.iconName)
-                }
-                .tag(SettingsTab.ai)
-            
-            WeatherSettingsView()
-                .tabItem {
-                    Label(SettingsTab.weather.rawValue, systemImage: SettingsTab.weather.iconName)
-                }
-                .tag(SettingsTab.weather)
-            
-            ClipboardSettingsView()
-                .tabItem {
-                    Label(SettingsTab.clipboard.rawValue, systemImage: SettingsTab.clipboard.iconName)
-                }
-                .tag(SettingsTab.clipboard)
-            
-            FeatureToggleSettingsView()
-                .tabItem {
-                    Label(SettingsTab.features.rawValue, systemImage: SettingsTab.features.iconName)
-                }
-                .tag(SettingsTab.features)
-            
-            AboutSettingsView()
-                .tabItem {
-                    Label(SettingsTab.about.rawValue, systemImage: SettingsTab.about.iconName)
-                }
-                .tag(SettingsTab.about)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(16)
         }
-        .frame(width: 580, height: 500)
+        .frame(minWidth: 620, idealWidth: 680, minHeight: 460, idealHeight: 520)
     }
 }
 
-/// Window controller managing the native Settings window
-public final class SettingsWindowController: NSWindowController, @unchecked Sendable {
+/// Window controller managing the native Settings window with proper macOS activation policy and focus retention
+public final class SettingsWindowController: NSWindowController, NSWindowDelegate, @unchecked Sendable {
     public static let shared = SettingsWindowController()
     
     public init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 540, height: 480),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 680, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "\(BrandAssets.appName) Settings"
         window.center()
         window.isReleasedWhenClosed = false
+        window.identifier = NSUserInterfaceItemIdentifier("KikoNotchSettingsWindow")
+        
+        // Ensure proper window behaviors across Spaces and Cycles
+        window.collectionBehavior = [.managed, .participatesInCycle, .fullScreenAuxiliary]
+        window.hidesOnDeactivate = false
+        window.isExcludedFromWindowsMenu = false
+        window.isMovableByWindowBackground = true
         
         let hostingView = NSHostingView(rootView: SettingsRootView())
         window.contentView = hostingView
         
         super.init(window: window)
+        window.delegate = self
         
         // Link interaction manager and menu bar callbacks
         InteractionManager.shared.onOpenSettings = { [weak self] in
@@ -140,10 +129,62 @@ public final class SettingsWindowController: NSWindowController, @unchecked Send
         fatalError("init(coder:) has not been implemented")
     }
     
-    public func showSettings() {
+    public func showSettings(tab: SettingsTab? = nil) {
+        if let tab = tab {
+            SettingsTabSelection.shared.selectedTab = tab
+        }
+        
+        // Set app to regular mode so window can receive focus and key events
+        NSApp.setActivationPolicy(.regular)
+        
         guard let window = self.window else { return }
-        window.center()
+        
+        if window.isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+            window.orderFrontRegardless()
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        
+        window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
+        window.center()
+        
         NSApp.activate(ignoringOtherApps: true)
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.makeKeyAndOrderFront(nil)
+        }
+    }
+    
+    public override func close() {
+        super.close()
+        relinquishFocus()
+    }
+    
+    private func relinquishFocus() {
+        window?.orderOut(nil)
+        
+        // Return app to accessory policy unless dock icon is configured to stay visible
+        if !AppLifecycle.shared.isDockIconVisible {
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+    
+    // MARK: - NSWindowDelegate
+    
+    public func windowWillClose(_ notification: Notification) {
+        relinquishFocus()
+    }
+    
+    public func windowShouldClose(_ sender: NSWindow) -> Bool {
+        return true
+    }
+    
+    public func windowDidBecomeKey(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+    }
+    
+    public func windowDidResignKey(_ notification: Notification) {
     }
 }

@@ -45,6 +45,10 @@ public struct MediaMetadata: Sendable, Equatable {
         return NSImage(data: data)
     }
     
+    public var artwork: NSImage? {
+        artworkImage
+    }
+    
     public var displayTitle: String {
         title.isEmpty ? "No Media Playing" : title
     }
@@ -74,6 +78,12 @@ public struct MediaMetadata: Sendable, Equatable {
         let remaining = max(0.0, duration - elapsedTime)
         return "-\(Self.formatTime(remaining))"
     }
+    
+    // Convenience aliases for UI tab bindings
+    public var formattedElapsed: String { elapsedFormatted }
+    public var formattedRemaining: String { remainingFormatted }
+    public var isShuffled: Bool { isShuffle }
+    public var isRepeating: Bool { isRepeat }
     
     public static let empty = MediaMetadata()
 }

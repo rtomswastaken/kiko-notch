@@ -23,6 +23,20 @@ public final class AudioDeviceManager: ObservableObject, @unchecked Sendable {
     @Published public private(set) var outputDevices: [AudioOutputDevice] = []
     @Published public private(set) var defaultOutputDevice: AudioOutputDevice?
     
+    public var currentOutputDevice: AudioOutputDevice? { defaultOutputDevice }
+    
+    public var systemVolume: Float {
+        AudioHUDMonitor.shared.currentVolume
+    }
+    
+    public func setVolume(_ volume: Float) {
+        AudioHUDMonitor.shared.setSimulatedVolume(volume)
+    }
+    
+    public func selectDevice(_ device: AudioOutputDevice) {
+        setDefaultOutputDevice(deviceID: device.id)
+    }
+    
     private init() {
         refreshDevices()
     }

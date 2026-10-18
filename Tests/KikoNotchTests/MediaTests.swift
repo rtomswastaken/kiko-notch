@@ -55,4 +55,36 @@ final class MediaTests: XCTestCase {
         // Should not crash and should populate or retain valid collection
         XCTAssertNotNil(manager.outputDevices)
     }
+    
+    func testMediaMetadataAliases() {
+        let meta = MediaMetadata(
+            title: "Song",
+            artist: "Artist",
+            album: "Album",
+            duration: 120.0,
+            elapsedTime: 30.0,
+            isPlaying: true,
+            playerApp: "Music",
+            isShuffle: true,
+            isRepeat: true
+        )
+        XCTAssertEqual(meta.formattedElapsed, "0:30")
+        XCTAssertEqual(meta.formattedRemaining, "-1:30")
+        XCTAssertTrue(meta.isShuffled)
+        XCTAssertTrue(meta.isRepeating)
+        XCTAssertNil(meta.artwork)
+    }
+    
+    func testMediaControllerPlaybackControlsNoCrash() {
+        let controller = MediaController.shared
+        // Ensure none of the public playback triggers crash even when players are not playing
+        controller.togglePlayPause()
+        controller.nextTrack()
+        controller.previousTrack()
+        controller.seek(to: 10.0)
+        controller.toggleShuffle()
+        controller.toggleRepeat()
+        controller.refreshMedia()
+        XCTAssertNotNil(controller.currentMedia)
+    }
 }

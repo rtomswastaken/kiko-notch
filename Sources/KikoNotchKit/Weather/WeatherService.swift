@@ -13,11 +13,41 @@ public struct HourlyForecastItem: Identifiable, Sendable, Codable, Equatable {
     public let weatherCode: Int
     public let precipitationProbability: Int
     
+    public var tempCelsius: Double { temperature }
+    public var iconName: String {
+        switch weatherCode {
+        case 0: return "sun.max.fill"
+        case 1, 2: return "cloud.sun.fill"
+        case 3: return "cloud.fill"
+        case 45, 48: return "cloud.fog.fill"
+        case 51...65: return "cloud.rain.fill"
+        case 71...77, 85, 86: return "snowflake"
+        case 80...82: return "cloud.heavyrain.fill"
+        case 95...99: return "cloud.bolt.rain.fill"
+        default: return "cloud.fill"
+        }
+    }
+    
     public init(timeString: String, temperature: Double, weatherCode: Int, precipitationProbability: Int) {
         self.timeString = timeString
         self.temperature = temperature
         self.weatherCode = weatherCode
         self.precipitationProbability = precipitationProbability
+    }
+}
+
+public struct DailyForecastItem: Identifiable, Sendable, Codable, Equatable {
+    public var id: String { dayOfWeek }
+    public let dayOfWeek: String
+    public let iconName: String
+    public let minTempCelsius: Double
+    public let maxTempCelsius: Double
+    
+    public init(dayOfWeek: String, iconName: String, minTempCelsius: Double, maxTempCelsius: Double) {
+        self.dayOfWeek = dayOfWeek
+        self.iconName = iconName
+        self.minTempCelsius = minTempCelsius
+        self.maxTempCelsius = maxTempCelsius
     }
 }
 
@@ -30,6 +60,7 @@ public struct WeatherSnapshot: Sendable, Codable, Equatable {
     public let maxTempCelsius: Double
     public let precipitationProbability: Int
     public let hourly: [HourlyForecastItem]
+    public let daily: [DailyForecastItem]
     public let isOffline: Bool
     
     public init(
@@ -41,6 +72,7 @@ public struct WeatherSnapshot: Sendable, Codable, Equatable {
         maxTempCelsius: Double,
         precipitationProbability: Int,
         hourly: [HourlyForecastItem] = [],
+        daily: [DailyForecastItem] = [],
         isOffline: Bool = false
     ) {
         self.timestamp = timestamp
@@ -51,6 +83,7 @@ public struct WeatherSnapshot: Sendable, Codable, Equatable {
         self.maxTempCelsius = maxTempCelsius
         self.precipitationProbability = precipitationProbability
         self.hourly = hourly
+        self.daily = daily
         self.isOffline = isOffline
     }
     
@@ -80,6 +113,17 @@ public struct WeatherSnapshot: Sendable, Codable, Equatable {
         default: return "cloud.fill"
         }
     }
+    
+    public var temperatureCelsius: Double { currentTempCelsius }
+    
+    public struct WeatherConditionProxy: Sendable {
+        public let displayName: String
+        public let iconName: String
+    }
+    
+    public var condition: WeatherConditionProxy {
+        WeatherConditionProxy(displayName: conditionDescription, iconName: conditionIcon)
+    }
 }
 
 /// Weather service using Open-Meteo REST API with offline caching and unit conversion.
@@ -89,6 +133,7 @@ public final class WeatherService: ObservableObject {
     public static let shared = WeatherService()
     
     @Published public private(set) var currentWeather: WeatherSnapshot?
+    public var currentSnapshot: WeatherSnapshot? { currentWeather }
     @Published public private(set) var isLoading: Bool = false
     @Published public var unit: TemperatureUnit {
         didSet {

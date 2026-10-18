@@ -1,6 +1,7 @@
 import Foundation
 import EventKit
 import Combine
+import AppKit
 
 public struct CalendarEventItem: Identifiable, Sendable, Equatable {
     public let id: String
@@ -9,6 +10,22 @@ public struct CalendarEventItem: Identifiable, Sendable, Equatable {
     public let endDate: Date
     public let isAllDay: Bool
     public let location: String?
+    
+    public var calendarColor: NSColor {
+        .systemBlue
+    }
+    
+    public var formattedStartTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: startDate)
+    }
+    
+    public var formattedEndTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: endDate)
+    }
     
     public init(id: String, title: String, startDate: Date, endDate: Date, isAllDay: Bool, location: String? = nil) {
         self.id = id

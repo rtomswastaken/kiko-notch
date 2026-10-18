@@ -21,6 +21,7 @@ public final class BluetoothMonitor: ObservableObject, @unchecked Sendable {
     public static let shared = BluetoothMonitor()
     
     @Published public private(set) var connectedDevices: [BluetoothPeripheral] = []
+    public var connectedPeripherals: [BluetoothPeripheral] { connectedDevices }
     public var onDevicesUpdated: (@Sendable ([BluetoothPeripheral]) -> Void)?
     public var onDeviceConnectionChanged: (@Sendable (String, Bool, Int?) -> Void)?
     

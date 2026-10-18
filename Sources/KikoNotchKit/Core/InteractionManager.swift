@@ -187,7 +187,7 @@ public final class InteractionManager: ObservableObject, @unchecked Sendable {
     }
     
     @objc private func menuQuitAction() {
-        NSApp.terminate(nil)
+        NSApplication.shared.terminate(nil)
     }
     
     // MARK: - Swipe Gesture Handling

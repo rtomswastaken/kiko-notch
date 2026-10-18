@@ -1,13 +1,15 @@
 import Foundation
+import Combine
+import SwiftUI
 
 /// Monitor for keyboard backlight changes.
 /// Implements SYS-003.
-public final class KeyboardBacklightMonitor: @unchecked Sendable {
+public final class KeyboardBacklightMonitor: ObservableObject, @unchecked Sendable {
     public static let shared = KeyboardBacklightMonitor()
     
+    @Published public var currentBacklight: Float = 0.5
     public var onBacklightChange: (@Sendable (Float) -> Void)?
     private var isListening: Bool = false
-    private var currentLevel: Float = 0.5
     
     public init() {}
     
@@ -30,11 +32,12 @@ public final class KeyboardBacklightMonitor: @unchecked Sendable {
     }
     
     @objc private func handleBacklightNotification(_ notification: Notification) {
-        onBacklightChange?(currentLevel)
+        onBacklightChange?(currentBacklight)
     }
     
     public func setSimulatedBacklight(_ level: Float) {
-        currentLevel = max(0.0, min(1.0, level))
-        onBacklightChange?(currentLevel)
+        let clamped = max(0.0, min(1.0, level))
+        self.currentBacklight = clamped
+        onBacklightChange?(clamped)
     }
 }

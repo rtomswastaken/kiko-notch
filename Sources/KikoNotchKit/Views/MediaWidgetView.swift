@@ -15,6 +15,15 @@ public struct MediaWidgetView: View {
     }
     
     public var body: some View {
+        if meta.title.isEmpty {
+            emptyMediaView
+        } else {
+            activePlayerView
+        }
+    }
+    
+    @ViewBuilder
+    private var activePlayerView: some View {
         VStack(spacing: 10) {
             // Top Row: Artwork + Track details + Output Selector
             HStack(spacing: 12) {
@@ -212,6 +221,60 @@ public struct MediaWidgetView: View {
                 .accessibilityLabel("Repeat \(meta.isRepeat ? "on" : "off")")
             }
             .padding(.top, 2)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.primary.opacity(0.04))
+        )
+    }
+    
+    @ViewBuilder
+    private var emptyMediaView: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.primary.opacity(0.06))
+                Image(systemName: "music.note")
+                    .font(.system(size: 18))
+                    .foregroundColor(.secondary)
+            }
+            .frame(width: 44, height: 44)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No Media Playing")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                Text("Start playing audio in Apple Music or Spotify")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 6) {
+                Button(action: {
+                    NSWorkspace.shared.open(URL(string: "music://")!)
+                }) {
+                    Image(systemName: "applelogo")
+                        .font(.system(size: 11))
+                        .padding(6)
+                        .background(Circle().fill(Color.primary.opacity(0.06)))
+                }
+                .buttonStyle(.plain)
+                .help("Open Apple Music")
+                
+                Button(action: {
+                    NSWorkspace.shared.open(URL(string: "spotify://")!)
+                }) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11))
+                        .padding(6)
+                        .background(Circle().fill(Color.primary.opacity(0.06)))
+                }
+                .buttonStyle(.plain)
+                .help("Open Spotify")
+            }
         }
         .padding(12)
         .background(

@@ -175,10 +175,14 @@ public final class IslandHostingView: NSHostingView<IslandContainerView> {
     }
     
     public override func mouseDown(with event: NSEvent) {
-        if event.clickCount == 2 {
-            InteractionManager.shared.handleDoubleClick()
+        if InteractionManager.shared.currentState == .collapsed || InteractionManager.shared.currentState == .peek {
+            if event.clickCount == 2 {
+                InteractionManager.shared.handleDoubleClick()
+            } else {
+                InteractionManager.shared.handleSingleClick()
+            }
         } else {
-            InteractionManager.shared.handleSingleClick()
+            super.mouseDown(with: event)
         }
     }
     

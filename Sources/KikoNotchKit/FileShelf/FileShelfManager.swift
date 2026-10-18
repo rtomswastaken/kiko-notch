@@ -32,6 +32,10 @@ public final class FileShelfManager: ObservableObject, @unchecked Sendable {
         }
     }
     
+    public func removeItem(with id: UUID) {
+        removeItem(id: id)
+    }
+    
     public func clearAll() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -43,8 +47,20 @@ public final class FileShelfManager: ObservableObject, @unchecked Sendable {
         NSWorkspace.shared.open(item.url)
     }
     
+    public func openItem(with id: UUID) {
+        if let item = items.first(where: { $0.id == id }) {
+            openFile(item: item)
+        }
+    }
+    
     public func revealInFinder(item: FileShelfItem) {
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+    
+    public func revealItemInFinder(with id: UUID) {
+        if let item = items.first(where: { $0.id == id }) {
+            revealInFinder(item: item)
+        }
     }
     
     /// Native macOS Share Sheet & AirDrop integration via NSSharingServicePicker

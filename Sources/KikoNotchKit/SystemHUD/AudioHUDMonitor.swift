@@ -2,10 +2,15 @@ import Foundation
 import CoreAudio
 import AudioToolbox
 
+import Combine
+
 /// CoreAudio Event-driven listener for Volume and Output Route changes.
 /// Implements SYS-001, SYS-004, and PERF-003 (zero-polling, event-driven).
-public final class AudioHUDMonitor: @unchecked Sendable {
+public final class AudioHUDMonitor: ObservableObject, @unchecked Sendable {
     public static let shared = AudioHUDMonitor()
+    
+    @Published public var currentVolume: Float = 0.5
+    @Published public var isMuted: Bool = false
     
     public var onVolumeChange: (@Sendable (Float, Bool) -> Void)?
     public var onOutputDeviceChange: (@Sendable (String) -> Void)?
@@ -14,6 +19,13 @@ public final class AudioHUDMonitor: @unchecked Sendable {
     private var isListening: Bool = false
     
     public init() {}
+    
+    public func setSimulatedVolume(_ volume: Float, muted: Bool = false) {
+        let clamped = max(0.0, min(1.0, volume))
+        self.currentVolume = clamped
+        self.isMuted = muted
+        onVolumeChange?(clamped, muted)
+    }
     
     public func start() {
         guard !isListening else { return }
@@ -144,6 +156,10 @@ public final class AudioHUDMonitor: @unchecked Sendable {
         )
         
         if volStatus == noErr {
+            DispatchQueue.main.async { [weak self] in
+                self?.currentVolume = volume
+                self?.isMuted = (mute == 1)
+            }
             onVolumeChange?(volume, mute == 1)
         }
     }

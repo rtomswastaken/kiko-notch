@@ -10,6 +10,19 @@ public struct BatteryState: Sendable, Equatable {
     public let timeRemainingMinutes: Int?
     public let isLowBattery: Bool
     
+    public var powerSource: String {
+        if !hasBattery {
+            return "AC Power"
+        }
+        if isCharging {
+            return "Charging"
+        }
+        if isPluggedIn {
+            return "Power Adapter"
+        }
+        return "Battery"
+    }
+    
     public static let unavailable = BatteryState(
         hasBattery: false,
         percentage: 0,

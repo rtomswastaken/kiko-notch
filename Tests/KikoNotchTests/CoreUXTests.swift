@@ -117,4 +117,46 @@ final class CoreUXTests: XCTestCase {
         XCTAssertTrue(lifecycle.showInDock)
         lifecycle.showInDock = false
     }
+    
+    @MainActor
+    func testSettingsWindowControllerProperties() {
+        let controller = SettingsWindowController.shared
+        guard let window = controller.window else {
+            XCTFail("Settings window should be instantiated")
+            return
+        }
+        XCTAssertEqual(window.title, "Kiko Notch Settings")
+        XCTAssertEqual(window.identifier?.rawValue, "KikoNotchSettingsWindow")
+        XCTAssertTrue(window.collectionBehavior.contains(.managed))
+        XCTAssertTrue(window.collectionBehavior.contains(.participatesInCycle))
+        XCTAssertTrue(window.collectionBehavior.contains(.fullScreenAuxiliary))
+        
+        // Tab programmatic selection
+        SettingsTabSelection.shared.selectedTab = .media
+        XCTAssertEqual(SettingsTabSelection.shared.selectedTab, .media)
+        SettingsTabSelection.shared.selectedTab = .general
+        XCTAssertEqual(SettingsTabSelection.shared.selectedTab, .general)
+    }
+    
+    func testDeterministicSettingsToggles() {
+        let settings = SettingsManager.shared
+        
+        // Feature toggles
+        settings.setFeatureEnabled(.media, enabled: true)
+        XCTAssertTrue(settings.isFeatureEnabled(.media))
+        settings.setFeatureEnabled(.media, enabled: false)
+        XCTAssertFalse(settings.isFeatureEnabled(.media))
+        settings.setFeatureEnabled(.media, enabled: true)
+        XCTAssertTrue(settings.isFeatureEnabled(.media))
+        
+        // AI Provider toggles
+        settings.setAIProviderEnabled(.codex, enabled: true)
+        XCTAssertTrue(settings.isAIProviderEnabled(.codex))
+        settings.setAIProviderEnabled(.codex, enabled: false)
+        XCTAssertFalse(settings.isAIProviderEnabled(.codex))
+        
+        // Antigravity defaults
+        settings.setAIProviderEnabled(.antigravity, enabled: true)
+        XCTAssertTrue(settings.isAIProviderEnabled(.antigravity))
+    }
 }

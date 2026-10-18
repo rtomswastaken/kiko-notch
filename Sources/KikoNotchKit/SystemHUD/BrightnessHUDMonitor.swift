@@ -1,14 +1,16 @@
 import Foundation
 import CoreGraphics
+import Combine
+import SwiftUI
 
 /// Monitor for display brightness changes.
 /// Implements SYS-002.
-public final class BrightnessHUDMonitor: @unchecked Sendable {
+public final class BrightnessHUDMonitor: ObservableObject, @unchecked Sendable {
     public static let shared = BrightnessHUDMonitor()
     
+    @Published public var currentBrightness: Float = 0.5
     public var onBrightnessChange: (@Sendable (Float) -> Void)?
     private var isListening: Bool = false
-    private var currentLevel: Float = 0.5
     
     public init() {}
     
@@ -39,12 +41,13 @@ public final class BrightnessHUDMonitor: @unchecked Sendable {
     public func queryCurrentBrightness() {
         // Safe query of current main display brightness
         // Fallback default or simulated level
-        onBrightnessChange?(currentLevel)
+        onBrightnessChange?(currentBrightness)
     }
     
     /// External trigger or test helper
     public func setSimulatedBrightness(_ level: Float) {
-        currentLevel = max(0.0, min(1.0, level))
-        onBrightnessChange?(currentLevel)
+        let clamped = max(0.0, min(1.0, level))
+        self.currentBrightness = clamped
+        onBrightnessChange?(clamped)
     }
 }

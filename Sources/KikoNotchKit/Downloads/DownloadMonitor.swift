@@ -7,6 +7,9 @@ public final class DownloadMonitor: ObservableObject, @unchecked Sendable {
     public static let shared = DownloadMonitor()
     
     @Published public private(set) var downloads: [DownloadItem] = []
+    public var activeDownloadsList: [DownloadItem] {
+        downloads.filter { $0.state == .active }
+    }
     public var onDownloadsUpdated: (@Sendable ([DownloadItem]) -> Void)?
     public var onDownloadCompleted: (@Sendable (DownloadItem) -> Void)?
     
