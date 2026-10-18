@@ -1,8 +1,27 @@
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Swift Package Manager & Xcode
 .build/
 .swiftpm/
 DerivedData/
 *.xcodeproj
 *.xcworkspace
+*.xcuserdata/
+
+# Local databases & logs
 *.sqlite3
 *.sqlite3-journal
+*.log
+
+# Environment & Secrets (NEVER commit secrets)
+.env
+.env.*
+*.p8
+*.p12
+*.cer
+*.key
+*.pem
+*.mobileprovision
