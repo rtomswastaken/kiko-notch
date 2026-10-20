@@ -2,17 +2,12 @@ import Foundation
 import AppKit
 import SwiftUI
 
-/// Tab identifier for Settings window
-public enum SettingsTab: String, CaseIterable, Identifiable {
+/// Tab identifier for Settings window reflecting real, implemented features
+public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     case general = "General"
     case appearance = "Appearance"
-    case displays = "Displays"
-    case media = "Media"
-    case hud = "HUD & System"
-    case ai = "AI Providers"
-    case weather = "Weather"
-    case clipboard = "Clipboard"
-    case features = "Features"
+    case hud = "HUD & Alerts"
+    case ai = "AI & Integrations"
     case about = "About"
     
     public var id: String { rawValue }
@@ -21,13 +16,8 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "gearshape"
         case .appearance: return "paintpalette"
-        case .displays: return "display"
-        case .media: return "play.circle"
         case .hud: return "slider.horizontal.3"
         case .ai: return "sparkles"
-        case .weather: return "cloud.sun"
-        case .clipboard: return "doc.on.clipboard"
-        case .features: return "switch.2"
         case .about: return "info.circle"
         }
     }
@@ -55,7 +45,7 @@ public struct SettingsRootView: View {
                 }
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 160, ideal: 190, max: 220)
+            .navigationSplitViewColumnWidth(min: 170, ideal: 195, max: 230)
         } detail: {
             Group {
                 switch tabSelection.selectedTab {
@@ -63,28 +53,18 @@ public struct SettingsRootView: View {
                     GeneralSettingsView()
                 case .appearance:
                     AppearanceSettingsView()
-                case .displays:
-                    DisplaySettingsView()
-                case .media:
-                    MediaSettingsView()
                 case .hud:
                     HUDSettingsView()
                 case .ai:
                     AIProvidersSettingsView()
-                case .weather:
-                    WeatherSettingsView()
-                case .clipboard:
-                    ClipboardSettingsView()
-                case .features:
-                    FeatureToggleSettingsView()
                 case .about:
                     AboutSettingsView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(16)
         }
-        .frame(minWidth: 620, idealWidth: 680, minHeight: 460, idealHeight: 520)
+        .frame(minWidth: 640, idealWidth: 700, minHeight: 480, idealHeight: 560)
+        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -94,7 +74,7 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
     
     public init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 680, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 560),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -102,6 +82,8 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
         window.title = "\(BrandAssets.appName) Settings"
         window.center()
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
+        window.appearance = NSAppearance(named: .darkAqua)
         window.identifier = NSUserInterfaceItemIdentifier("KikoNotchSettingsWindow")
         
         // Ensure proper window behaviors across Spaces and Cycles

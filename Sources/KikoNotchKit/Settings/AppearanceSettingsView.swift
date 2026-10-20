@@ -1,29 +1,26 @@
 import SwiftUI
 import AppKit
 
-/// Appearance and theme customization preferences tab
+/// Appearance and liquid glass material preferences tab
 public struct AppearanceSettingsView: View {
     @ObservedObject public var themeManager = ThemeManager.shared
     @ObservedObject public var settings = SettingsManager.shared
-    
-    @State private var showingExportAlert = false
-    @State private var exportSuccess = false
+
     @State private var showingResetAlert = false
-    
+
     public init() {}
-    
+
     public var body: some View {
         Form {
+            // MARK: - Theme Preset Selection
             Section {
-                // Theme Preset Picker
                 Picker("Theme Preset", selection: $themeManager.currentTheme) {
                     ForEach(AppTheme.allCases, id: \.self) { theme in
                         Text(theme.rawValue).tag(theme)
                     }
                 }
                 .pickerStyle(.segmented)
-                
-                // Reduced Motion Toggle (CUSTOM-006)
+
                 Toggle("Reduce Motion (Disable Spring Animations)", isOn: Binding(
                     get: { themeManager.isReducedMotion },
                     set: { themeManager.setReducedMotionPreference($0) }
@@ -33,9 +30,9 @@ public struct AppearanceSettingsView: View {
                 Text("Theme Selection")
                     .font(.headline)
             }
-            
+
+            // MARK: - Liquid Glass Materials
             Section {
-                // Background Opacity
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Background Opacity")
@@ -45,8 +42,7 @@ public struct AppearanceSettingsView: View {
                     }
                     Slider(value: $themeManager.colors.backgroundOpacity, in: 0.3...1.0, step: 0.05)
                 }
-                
-                // Blur Intensity
+
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Blur Intensity")
@@ -56,8 +52,7 @@ public struct AppearanceSettingsView: View {
                     }
                     Slider(value: $themeManager.colors.blurIntensity, in: 0.2...1.0, step: 0.05)
                 }
-                
-                // Frost Intensity
+
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Frost Texture Intensity")
@@ -71,9 +66,9 @@ public struct AppearanceSettingsView: View {
                 Text("Liquid Glass Materials")
                     .font(.headline)
             }
-            
+
+            // MARK: - Island Geometry
             Section {
-                // Corner Radius
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Corner Radius")
@@ -87,94 +82,61 @@ public struct AppearanceSettingsView: View {
                         step: 1
                     )
                 }
-                
-                // Expanded Dimensions
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Expanded Width: \(Int(themeManager.geometry.expandedWidth)) pt")
-                            .font(.system(size: 11))
-                        Slider(
-                            value: $themeManager.geometry.expandedWidth,
-                            in: IslandGeometry.minExpandedWidth...IslandGeometry.maxExpandedWidth,
-                            step: 10
-                        )
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Expanded Height: \(Int(themeManager.geometry.expandedHeight)) pt")
-                            .font(.system(size: 11))
-                        Slider(
-                            value: $themeManager.geometry.expandedHeight,
-                            in: IslandGeometry.minExpandedHeight...IslandGeometry.maxExpandedHeight,
-                            step: 10
-                        )
-                    }
+
+                LabeledContent("Expanded Island Dimensions") {
+                    Text("\(Int(IslandGeometry.expandedSize.width)) × \(Int(IslandGeometry.expandedSize.height)) pt")
+                        .foregroundColor(.secondary)
+                }
+
+                LabeledContent("Collapsed Island Dimensions") {
+                    Text("\(Int(IslandGeometry.collapsedSize.width)) × \(Int(IslandGeometry.collapsedSize.height)) pt")
+                        .foregroundColor(.secondary)
                 }
             } header: {
                 Text("Geometry & Proportions")
                     .font(.headline)
             }
-            
+
+            // MARK: - Dynamic Artwork Accents
             Section {
-                // Layout Builder Module Ordering & Toggles (CUSTOM-005)
-                ForEach(LayoutConfiguration.ModuleSlot.allCases, id: \.self) { slot in
-                    Toggle(slot.rawValue, isOn: Binding(
-                        get: { themeManager.layout.visibleModules.contains(slot) },
-                        set: { _ in themeManager.layout.toggleVisibility(for: slot) }
-                    ))
+                HStack(spacing: 12) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 20))
+                        .foregroundColor(.accentColor)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Adaptive Artwork-Derived Accents")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Kiko Notch uses a monochrome dark glass base and dynamically extracts vibrant accent gradient highlights from currently playing media artwork.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .padding(.vertical, 4)
             } header: {
-                Text("Expanded Island Modules")
+                Text("Accent Highlights")
                     .font(.headline)
             }
-            
+
+            // MARK: - Reset Actions
             Section {
-                // Export / Import / Reset (CUSTOM-007)
-                HStack(spacing: 12) {
-                    Button("Export Theme…") {
-                        exportThemeToFile()
-                    }
-                    
-                    Button("Import Theme…") {
-                        importThemeFromFile()
-                    }
-                    
+                HStack {
                     Spacer()
-                    
-                    Button("Reset to Defaults", role: .destructive) {
-                        themeManager.resetToDefaults()
+                    Button("Reset Appearance to Defaults", role: .destructive) {
+                        showingResetAlert = true
                     }
                 }
-            } header: {
-                Text("Theme Management")
-                    .font(.headline)
             }
         }
         .formStyle(.grouped)
         .padding(16)
-    }
-    
-    private func exportThemeToFile() {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "kiko_theme.json"
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                let profile = themeManager.currentProfile()
-                try? ThemeStorage.exportTheme(profile: profile, to: url)
+        .alert("Reset Appearance Settings?", isPresented: $showingResetAlert) {
+            Button("Reset", role: .destructive) {
+                themeManager.resetToDefaults()
             }
-        }
-    }
-    
-    private func importThemeFromFile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.json]
-        panel.allowsMultipleSelection = false
-        panel.begin { response in
-            if response == .OK, let url = panel.url,
-               let profile = try? ThemeStorage.importTheme(from: url) {
-                themeManager.loadProfile(profile)
-            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will restore the default Liquid Glass Dark theme, materials, corner radius, and animation preferences.")
         }
     }
 }

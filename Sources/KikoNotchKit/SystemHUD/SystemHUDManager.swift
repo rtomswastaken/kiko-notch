@@ -9,16 +9,32 @@ public final class SystemHUDManager: ObservableObject {
     public static let shared = SystemHUDManager()
     
     @Published public private(set) var activeEvent: SystemHUDEvent?
-    @Published public var displayDuration: Double = 1.8
+    @Published public var displayDuration: Double = 1.8 {
+        didSet { UserDefaults.standard.set(displayDuration, forKey: "kiko.hud.duration") }
+    }
     
     // Per-event enable/disable settings
-    @Published public var isVolumeEnabled: Bool = true
-    @Published public var isBrightnessEnabled: Bool = true
-    @Published public var isBacklightEnabled: Bool = true
-    @Published public var isAudioRouteEnabled: Bool = true
-    @Published public var isBatteryEnabled: Bool = true
-    @Published public var isBluetoothEnabled: Bool = true
-    @Published public var isDownloadsEnabled: Bool = true
+    @Published public var isVolumeEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isVolumeEnabled, forKey: "kiko.hud.volumeEnabled") }
+    }
+    @Published public var isBrightnessEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isBrightnessEnabled, forKey: "kiko.hud.brightnessEnabled") }
+    }
+    @Published public var isBacklightEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isBacklightEnabled, forKey: "kiko.hud.backlightEnabled") }
+    }
+    @Published public var isAudioRouteEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isAudioRouteEnabled, forKey: "kiko.hud.audioRouteEnabled") }
+    }
+    @Published public var isBatteryEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isBatteryEnabled, forKey: "kiko.hud.batteryEnabled") }
+    }
+    @Published public var isBluetoothEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isBluetoothEnabled, forKey: "kiko.hud.bluetoothEnabled") }
+    }
+    @Published public var isDownloadsEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isDownloadsEnabled, forKey: "kiko.hud.downloadsEnabled") }
+    }
     
     private var dismissTimer: Timer?
     private var isStarted: Bool = false

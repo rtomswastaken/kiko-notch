@@ -154,4 +154,89 @@ public final class CodexProvider: AIProviderAdapter, @unchecked Sendable {
             )
         }
     }
+
+    public func fetchQuotaSnapshot() async throws -> AIProviderQuotaSnapshot {
+        let refreshStart = Date()
+        guard let key = apiKey, !key.isEmpty else {
+            let diag = AIProviderDiagnostics(
+                providerID: id,
+                dataSource: "macOS Keychain (codex_api_key)",
+                lastRefreshStart: refreshStart,
+                lastRefreshCompletion: Date(),
+                isRefreshing: false,
+                parsingOutcome: "Missing API Key",
+                errorCategory: "AuthRequired",
+                statusMessage: "API Key Not Configured"
+            )
+            return AIProviderQuotaSnapshot(
+                providerID: id,
+                displayName: displayName,
+                isAvailable: false,
+                statusMessage: "API Key Not Configured in Keychain",
+                quotas: [
+                    .authRequired(window: .fiveHour, reason: "Configure OpenAI API key in Settings"),
+                    .authRequired(window: .weekly, reason: "Configure OpenAI API key in Settings"),
+                    .authRequired(window: .monthly, reason: "Configure OpenAI API key in Settings")
+                ],
+                diagnostics: diag
+            )
+        }
+
+        let usage = try await fetchUsage()
+        let refreshEnd = Date()
+
+        if !usage.isAvailable {
+            let diag = AIProviderDiagnostics(
+                providerID: id,
+                dataSource: "https://api.openai.com/v1/models",
+                lastRefreshStart: refreshStart,
+                lastRefreshCompletion: refreshEnd,
+                isRefreshing: false,
+                parsingOutcome: "API Error",
+                errorCategory: usage.statusMessage.contains("401") ? "AuthError" : "NetworkError",
+                statusMessage: usage.statusMessage
+            )
+            return AIProviderQuotaSnapshot(
+                providerID: id,
+                displayName: displayName,
+                timestamp: refreshEnd,
+                isAvailable: false,
+                statusMessage: usage.statusMessage,
+                quotas: [
+                    .failed(window: .fiveHour, error: usage.statusMessage),
+                    .failed(window: .weekly, error: usage.statusMessage),
+                    .failed(window: .monthly, error: usage.statusMessage)
+                ],
+                diagnostics: diag
+            )
+        }
+
+        let diag = AIProviderDiagnostics(
+            providerID: id,
+            dataSource: "https://api.openai.com/v1/models",
+            lastRefreshStart: refreshStart,
+            lastRefreshCompletion: refreshEnd,
+            lastSuccessfulRefresh: refreshEnd,
+            isRefreshing: false,
+            parsingOutcome: "Connected",
+            errorCategory: nil,
+            statusMessage: usage.statusMessage
+        )
+
+        return AIProviderQuotaSnapshot(
+            providerID: id,
+            displayName: displayName,
+            timestamp: refreshEnd,
+            isAvailable: true,
+            statusMessage: usage.statusMessage,
+            quotas: [
+                .unsupported(window: .fiveHour, reason: "OpenAI models API does not expose remaining quota"),
+                .unsupported(window: .weekly, reason: "OpenAI models API does not expose remaining quota"),
+                .unsupported(window: .monthly, reason: "OpenAI models API does not expose remaining quota")
+            ],
+            sessionTokens: nil,
+            sessionRequests: nil,
+            diagnostics: diag
+        )
+    }
 }

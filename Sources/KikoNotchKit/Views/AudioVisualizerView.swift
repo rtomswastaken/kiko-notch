@@ -1,83 +1,78 @@
+//
+//  AudioVisualizerView.swift
+//  KikoNotchKit
+//
+//  Responsive 3-bar audio visualizer reacting to genuine audio signal levels
+//  with multi-color gradient spectrum support and zero idle CPU when paused.
+//
+
 import SwiftUI
 
-/// Animated audio equalizer visualizer bars tied to playback state with zero idle CPU
 public struct AudioVisualizerView: View {
     public var isPlaying: Bool
     public var barCount: Int
     public var barWidth: CGFloat
     public var maxHeight: CGFloat
-    public var color: Color
-    
-    @State private var barHeights: [CGFloat]
-    @State private var timer: Timer?
-    
+    public var color: Color?
+    public var colors: [Color]?
+
+    @ObservedObject private var signalMonitor = AudioSignalMonitor.shared
+    @ObservedObject private var accentTheme = AccentThemeManager.shared
+
     public init(
         isPlaying: Bool,
-        barCount: Int = 4,
+        barCount: Int = 3,
         barWidth: CGFloat = 2.5,
-        maxHeight: CGFloat = 14.0,
-        color: Color = .accentColor
+        maxHeight: CGFloat = 12.0,
+        color: Color? = nil,
+        colors: [Color]? = nil
     ) {
         self.isPlaying = isPlaying
         self.barCount = barCount
         self.barWidth = barWidth
         self.maxHeight = maxHeight
         self.color = color
-        self._barHeights = State(initialValue: Array(repeating: 3.0, count: barCount))
+        self.colors = colors
     }
-    
+
+    private let minBarHeight: CGFloat = 2.5
+
+    private func heightForBar(at index: Int) -> CGFloat {
+        guard isPlaying else { return minBarHeight }
+        let levels = signalMonitor.barLevels
+        let normalized: CGFloat = index < levels.count ? levels[index] : 0.15
+        let clamped = max(0.0, min(1.0, normalized))
+        return minBarHeight + (maxHeight - minBarHeight) * clamped
+    }
+
+    private func colorForBar(at index: Int) -> Color {
+        if let explicitColors = colors, index < explicitColors.count {
+            return explicitColors[index]
+        }
+        if let explicitColor = color {
+            return explicitColor
+        }
+        let themeColors = accentTheme.colors
+        if index < themeColors.count {
+            return themeColors[index]
+        }
+        return accentTheme.primaryAccent
+    }
+
     public var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(0..<barCount, id: \.self) { idx in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(color)
-                    .frame(width: barWidth, height: idx < barHeights.count ? barHeights[idx] : 3.0)
-                    .animation(.easeInOut(duration: 0.18), value: barHeights)
+                RoundedRectangle(cornerRadius: barWidth / 2.0)
+                    .fill(colorForBar(at: idx))
+                    .frame(width: barWidth, height: heightForBar(at: idx))
+                    .animation(
+                        .spring(response: 0.18, dampingFraction: 0.75, blendDuration: 0),
+                        value: signalMonitor.barLevels
+                    )
             }
         }
-        .frame(height: maxHeight)
-        .onAppear {
-            manageAnimationTimer(isPlaying: isPlaying)
-        }
-        .onChange(of: isPlaying) { playing in
-            manageAnimationTimer(isPlaying: playing)
-        }
-        .onDisappear {
-            stopTimer()
-        }
+        .frame(height: maxHeight, alignment: .bottom)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isPlaying ? "Audio playing visualizer active" : "Audio paused")
-    }
-    
-    private func manageAnimationTimer(isPlaying: Bool) {
-        if isPlaying {
-            startTimer()
-        } else {
-            stopTimer()
-            // Reset to idle baseline
-            barHeights = Array(repeating: 3.0, count: barCount)
-        }
-    }
-    
-    private func startTimer() {
-        stopTimer()
-        // Low frequency 8Hz update for smooth visualizer without eating CPU
-        timer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { _ in
-            var newHeights: [CGFloat] = []
-            for i in 0..<barCount {
-                // Spectral simulation curve: higher activity in middle/low frequencies
-                let minH: CGFloat = 3.0
-                let factor = sin(Double(i) * 0.8 + Date().timeIntervalSince1970 * 5.0)
-                let randomBonus = CGFloat.random(in: 0.0...1.0)
-                let height = minH + (maxHeight - minH) * max(0.1, min(1.0, CGFloat(abs(factor)) * 0.6 + randomBonus * 0.4))
-                newHeights.append(height)
-            }
-            self.barHeights = newHeights
-        }
-    }
-    
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
+        .accessibilityLabel(isPlaying ? "Audio visualizer playing (RMS: \(Int(signalMonitor.rmsLevel * 100))%)" : "Audio paused")
     }
 }

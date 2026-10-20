@@ -3,7 +3,7 @@ import Foundation
 public final class MockCPUMetricProvider: CPUMetricProvider, @unchecked Sendable {
     public var metricsToReturn: CPUMetrics
     public var sampleCallCount = 0
-    
+
     public init(metrics: CPUMetrics? = nil) {
         self.metricsToReturn = metrics ?? CPUMetrics(
             status: .available,
@@ -19,7 +19,7 @@ public final class MockCPUMetricProvider: CPUMetricProvider, @unchecked Sendable
             ]
         )
     }
-    
+
     public func sampleCPU() -> CPUMetrics {
         sampleCallCount += 1
         return metricsToReturn
@@ -29,7 +29,7 @@ public final class MockCPUMetricProvider: CPUMetricProvider, @unchecked Sendable
 public final class MockMemoryMetricProvider: MemoryMetricProvider, @unchecked Sendable {
     public var metricsToReturn: MemoryMetrics
     public var sampleCallCount = 0
-    
+
     public init(metrics: MemoryMetrics? = nil) {
         let total: UInt64 = 32 * 1024 * 1024 * 1024
         let app: UInt64 = 8 * 1024 * 1024 * 1024
@@ -37,7 +37,7 @@ public final class MockMemoryMetricProvider: MemoryMetricProvider, @unchecked Se
         let compressed: UInt64 = 2 * 1024 * 1024 * 1024
         let used = app + wired + compressed
         let available = total - used
-        
+
         self.metricsToReturn = metrics ?? MemoryMetrics(
             status: .available,
             totalBytes: total,
@@ -52,7 +52,7 @@ public final class MockMemoryMetricProvider: MemoryMetricProvider, @unchecked Se
             pressureLevel: .normal
         )
     }
-    
+
     public func sampleMemory() -> MemoryMetrics {
         sampleCallCount += 1
         return metricsToReturn
@@ -62,7 +62,7 @@ public final class MockMemoryMetricProvider: MemoryMetricProvider, @unchecked Se
 public final class MockGPUMetricProvider: GPUMetricProvider, @unchecked Sendable {
     public var metricsToReturn: GPUMetrics
     public var sampleCallCount = 0
-    
+
     public init(metrics: GPUMetrics? = nil) {
         self.metricsToReturn = metrics ?? GPUMetrics(
             name: "Apple M3 Pro",
@@ -72,7 +72,7 @@ public final class MockGPUMetricProvider: GPUMetricProvider, @unchecked Sendable
             utilization: .unavailable(reason: "System-wide GPU execution engine utilization is restricted on macOS without private Apple Silicon entitlements")
         )
     }
-    
+
     public func sampleGPU() -> GPUMetrics {
         sampleCallCount += 1
         return metricsToReturn
@@ -82,7 +82,7 @@ public final class MockGPUMetricProvider: GPUMetricProvider, @unchecked Sendable
 public final class MockStorageMetricProvider: StorageMetricProvider, @unchecked Sendable {
     public var metricsToReturn: StorageMetrics
     public var sampleCallCount = 0
-    
+
     public init(metrics: StorageMetrics? = nil) {
         let root = VolumeMetrics(
             name: "Macintosh HD",
@@ -94,7 +94,7 @@ public final class MockStorageMetricProvider: StorageMetricProvider, @unchecked 
         )
         self.metricsToReturn = metrics ?? StorageMetrics(status: .available, primaryVolume: root, allVolumes: [root])
     }
-    
+
     public func sampleStorage() -> StorageMetrics {
         sampleCallCount += 1
         return metricsToReturn
@@ -104,7 +104,7 @@ public final class MockStorageMetricProvider: StorageMetricProvider, @unchecked 
 public final class MockNetworkMetricProvider: NetworkMetricProvider, @unchecked Sendable {
     public var metricsToReturn: NetworkMetrics
     public var sampleCallCount = 0
-    
+
     public init(metrics: NetworkMetrics? = nil) {
         self.metricsToReturn = metrics ?? NetworkMetrics(
             status: .available,
@@ -115,7 +115,7 @@ public final class MockNetworkMetricProvider: NetworkMetricProvider, @unchecked 
             activeInterfaceName: "en0"
         )
     }
-    
+
     public func sampleNetwork() -> NetworkMetrics {
         sampleCallCount += 1
         return metricsToReturn
@@ -125,7 +125,7 @@ public final class MockNetworkMetricProvider: NetworkMetricProvider, @unchecked 
 public final class MockSystemInfoMetricProvider: SystemInfoMetricProvider, @unchecked Sendable {
     public var metricsToReturn: SystemInfoMetrics
     public var sampleCallCount = 0
-    
+
     public init(metrics: SystemInfoMetrics? = nil) {
         self.metricsToReturn = metrics ?? SystemInfoMetrics(
             chipName: "Apple M3 Pro",
@@ -135,9 +135,96 @@ public final class MockSystemInfoMetricProvider: SystemInfoMetricProvider, @unch
             thermalState: .nominal
         )
     }
-    
+
     public func sampleSystemInfo() -> SystemInfoMetrics {
         sampleCallCount += 1
         return metricsToReturn
+    }
+}
+
+public final class MockTemperatureTelemetryProvider: TemperatureTelemetryProvider, @unchecked Sendable {
+    public var cpuTemperatureToReturn: MetricValue<Double>
+    public var gpuTemperatureToReturn: MetricValue<Double>
+    public var temperaturesToReturn: TemperatureMetrics?
+    public var sampleCallCount = 0
+
+    public init(
+        cpuTemperature: MetricValue<Double>? = nil,
+        gpuTemperature: MetricValue<Double>? = nil,
+        temperatures: TemperatureMetrics? = nil
+    ) {
+        self.cpuTemperatureToReturn = cpuTemperature ?? .unavailable(
+            reason: "CPU die temperature requires private SMC or kernel interfaces on macOS",
+            unit: "°C"
+        )
+        self.gpuTemperatureToReturn = gpuTemperature ?? .unavailable(
+            reason: "GPU temperature sensors require private Apple Silicon interfaces on macOS",
+            unit: "°C"
+        )
+        self.temperaturesToReturn = temperatures
+    }
+
+    public func sampleTemperatures() -> TemperatureMetrics {
+        sampleCallCount += 1
+        if let temps = temperaturesToReturn {
+            return temps
+        }
+        return TemperatureMetrics(
+            status: .available,
+            cpuTemperature: cpuTemperatureToReturn,
+            gpuTemperature: gpuTemperatureToReturn,
+            batteryTemperature: .available(32.5, unit: "°C"),
+            ambientTemperature: .available(28.0, unit: "°C"),
+            sensors: [
+                TemperatureSensorReading(id: "TC10", name: "CPU Core 1", category: "CPU", celsius: 48.5),
+                TemperatureSensorReading(id: "Tg04", name: "GPU Core 1", category: "GPU", celsius: 45.0)
+            ]
+        )
+    }
+
+    public func sampleCPUTemperature() -> MetricValue<Double> {
+        sampleCallCount += 1
+        return cpuTemperatureToReturn
+    }
+
+    public func sampleGPUTemperature() -> MetricValue<Double> {
+        return gpuTemperatureToReturn
+    }
+}
+
+public final class MockFanTelemetryProvider: FanTelemetryProvider, @unchecked Sendable {
+    public var fansToReturn: FanMetrics
+    public var sampleCallCount = 0
+
+    public init(fans: FanMetrics? = nil) {
+        self.fansToReturn = fans ?? FanMetrics.unavailable
+    }
+
+    public func sampleFans() -> FanMetrics {
+        sampleCallCount += 1
+        return fansToReturn
+    }
+}
+
+public final class MockPowerTelemetryProvider: PowerTelemetryProvider, @unchecked Sendable {
+    public var powerToReturn: PowerMetrics
+    public var sampleCallCount = 0
+
+    public init(power: PowerMetrics? = nil) {
+        self.powerToReturn = power ?? PowerMetrics(
+            status: .available,
+            systemPowerWatts: 14.5,
+            cpuPowerWatts: 6.2,
+            gpuPowerWatts: 2.1,
+            batteryHealthPercentage: 92,
+            batteryCycleCount: 140,
+            batteryCondition: "Normal",
+            isCharging: false
+        )
+    }
+
+    public func samplePower() -> PowerMetrics {
+        sampleCallCount += 1
+        return powerToReturn
     }
 }

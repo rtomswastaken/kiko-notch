@@ -45,12 +45,12 @@ public struct FileShelfView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(
-                        isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
+                        isTargeted ? AccentThemeManager.shared.horizontalGradient : LinearGradient(colors: [Color.primary.opacity(0.1)], startPoint: .leading, endPoint: .trailing),
                         style: StrokeStyle(lineWidth: isTargeted ? 2 : 1, dash: isTargeted ? [6, 3] : [])
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(isTargeted ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
+                            .fill(isTargeted ? AccentThemeManager.shared.subtleBackgroundGradient : LinearGradient(colors: [Color.primary.opacity(0.04)], startPoint: .leading, endPoint: .trailing))
                     )
                 
                 if manager.items.isEmpty {

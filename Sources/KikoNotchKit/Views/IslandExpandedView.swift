@@ -1,16 +1,18 @@
 import SwiftUI
 import AppKit
 
-/// Expanded multi-tab interactive dashboard for Kiko Notch Island
+/// Expanded multi-tab interactive dashboard for Kiko Notch Island.
+/// Features a single, shared top navigation container positioned at fixed coordinates,
+/// with the dedicated page content viewport cleanly positioned beneath it.
 public struct IslandExpandedView: View {
     @ObservedObject public var interactionManager = InteractionManager.shared
     @ObservedObject public var navigation = IslandNavigationModel.shared
     @ObservedObject public var themeManager = ThemeManager.shared
-    
+
     private var customIsPinned: Binding<Bool>?
     private var onCollapse: (() -> Void)?
     private var onOpenSettings: (() -> Void)?
-    
+
     public init(
         isPinned: Binding<Bool>? = nil,
         onCollapse: (() -> Void)? = nil,
@@ -20,14 +22,14 @@ public struct IslandExpandedView: View {
         self.onCollapse = onCollapse
         self.onOpenSettings = onOpenSettings
     }
-    
+
     private var isPinnedBinding: Binding<Bool> {
         customIsPinned ?? $interactionManager.isPinned
     }
-    
+
     public var body: some View {
-        VStack(spacing: 8) {
-            // Horizontal Navigation Bar
+        VStack(spacing: 0) {
+            // 1. Single Shared Navigation Container (Stationary at top across all pages)
             IslandNavigationBar(
                 isPinned: isPinnedBinding,
                 onCollapse: {
@@ -38,33 +40,38 @@ public struct IslandExpandedView: View {
                     }
                 }
             )
-            
-            // Tab Content Body
+            .padding(.horizontal, IslandSpacing.horizontalPadding)
+            .padding(.top, IslandSpacing.topPadding)
+            .padding(.bottom, IslandSpacing.navBarSpacing)
+
+            // 2. Dedicated Page Content Viewport Region (Beneath the Navigation Selector)
             ZStack {
                 switch navigation.activeTab {
                 case .home:
                     HomeTabView()
+                case .system:
+                    SystemTabView()
                 case .fileShelf:
                     FileShelfTabView()
                 case .aiUsage:
                     AIUsageTabView()
-                case .nowPlaying:
-                    NowPlayingTabView()
-                case .calendar:
-                    ProductivityTabView()
-                case .system:
-                    SystemTabView()
-                case .weather:
-                    WeatherTabView()
                 case .settings:
-                    SettingsTabView()
+                    HomeTabView()
+                        .onAppear {
+                            SettingsWindowController.shared.showSettings()
+                            navigation.selectTab(.home)
+                        }
                 }
             }
+            .padding(.horizontal, IslandSpacing.horizontalPadding)
+            .padding(.bottom, IslandSpacing.bottomPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .clipped()
+            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
         }
-        .padding(10)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundColor(.white)
+        .environment(\.colorScheme, .dark)
         .onExitCommand {
             // Escape key dismisses island when unpinned (ACC-002)
             if !isPinnedBinding.wrappedValue {

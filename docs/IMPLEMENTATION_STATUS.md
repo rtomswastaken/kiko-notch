@@ -53,11 +53,18 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
 ### 2.8 Appearance & Customization (Section 14)
 - `CUSTOM-001` to `CUSTOM-007`: **Implemented & Verified**. Themes (Dark, Light, Automatic, Liquid Glass Dark, Liquid Glass Light, Custom), `NSVisualEffectView` frosted glass material with adjustable blur and opacity, color palette with WCAG AA contrast validation, geometry controls (width, height, 10pt–32pt corner radius), modular layout ordering, reduced motion adaptation, and theme export/import/persistence.
 
-### 2.9 AI Provider Architecture & Dashboard (Sections 15, 16, 17, 18)
-- `AI-ANTIGRAVITY-001` to `AI-ANTIGRAVITY-006`: **Implemented & Verified**. Primary AI provider enabled by default. Inspects local `~/.gemini/antigravity` environment and active sessions. Truthfully returns `nil` for unexposed quotas without fabricating data. Refresh scheduler with configurable intervals and SQLite3 history logging.
-- `AI-CODEX-001` to `AI-CODEX-003`: **Implemented & Verified**. Optional Codex adapter disabled by default, Keychain credentials, OpenAI models check, and strict fault isolation.
-- `AI-CLAUDE-001` to `AI-CLAUDE-003`: **Implemented & Verified**. Optional Claude adapter disabled by default, independently configurable, Keychain credentials, and local Claude Code CLI inspection.
-- `AI-DASH-001` to `AI-DASH-004`: **Implemented & Verified**. Multi-provider dashboard, 7-day vector historical charts, compact notch indicator, and JSON/CSV export with full database purge.
+### 2.9 AI Provider Architecture, Quota Monitoring & Coding Analytics (Sections 15, 16, 17, 18)
+- `AI-DASH-001` to `AI-DASH-006`: **Implemented & Verified**. Unified compact AI Dashboard fitting strictly inside the expanded Kiko Notch without vertical scrolling:
+  - **Header**: AI DASHBOARD title, dynamic provider selector showing only configured providers (`[Antigravity] [Codex] [Claude] [+]`), and compact empty state if unconfigured.
+  - **Three Circular Quota Gauges**: 5-Hour, Weekly, and Monthly quota rings with percentage remaining, reset time countdown, and honest unavailable reporting for unexposed windows.
+  - **WakaTime Coding Statistics**: Today, Last 7 Days, and All-Time coding duration fetched from authoritative WakaTime endpoints.
+  - **Previous Month Token Usage**: Aggregated token consumption for previous calendar month across configured AI providers.
+  - **Annual Coding Activity Heatmap**: 365 calendar-day activity grid with 53 week columns and weekday labels, dynamic intensity levels (0 to 4) derived from the centralized design tokens and accent color, and interactive day detail inspection.
+- `AI-ANTIGRAVITY-001` to `AI-ANTIGRAVITY-006`: **Implemented & Verified**. Primary AI provider enabled by default. Inspects local `~/.gemini/antigravity` environment, SQLite conversation summaries, and active sessions. Truthfully reports unavailable for unexposed quota windows without fabricating fake numbers.
+- `AI-CODEX-001` to `AI-CODEX-003`: **Implemented & Verified**. OpenAI Codex adapter, Keychain credential storage, models API check, and quota snapshot adapter.
+- `AI-CLAUDE-001` to `AI-CLAUDE-003`: **Implemented & Verified**. Anthropic Claude adapter, Keychain credential storage, local `~/.claude` CLI inspection, and quota snapshot adapter.
+- `WAKA-001` to `WAKA-005`: **Implemented & Verified**. Dedicated WakaTime integration in Settings with Keychain storage, test connection, 365-day summary retrieval, and non-blocking asynchronous synchronization.
+- `DESIGN-001` to `DESIGN-003`: **Implemented & Verified**. Centralized design tokens (`DesignTokens.swift`) enforcing monochrome palette, deep black background, and configurable accent color (defaulting to white).
 
 ### 2.10 Extensions & Application Management (Sections 19, 20)
 - `EXT-001` to `EXT-003`: **Implemented & Verified**. Pluggable `KikoModule` protocol, `FeatureRegistry` lifecycle management, custom action buttons, and crash protection (`ExtensionManager`) preventing module exceptions from terminating the app.
@@ -78,9 +85,13 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
   8. **Settings**: In-island access to General, Appearance, Displays, Features, Providers, Media, Shortcuts, and About.
 - **Visual & Interaction Styling**: Deep black backgrounds (`#0A0A0B`), minimal monochrome icons, 0.5pt subtle borders (`Color.white.opacity(0.08)`), pin & collapse controls, smooth keyboard & mouse tab cycling, and official monochrome Kiko Notch logo integration.
 
-### 2.13 Dedicated System Metrics Engine (Section 25)
+### 2.13 Dedicated System Metrics Engine & Compact Bento Grid Overview (Section 25)
 - `METRICS-001` to `METRICS-008`: **Implemented & Verified**.
   - **Modular Architecture**: Protocol-driven provider abstractions ([`SystemMetricsProviders.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/SystemMetrics/SystemMetricsProviders.swift)) decoupling sampling algorithms from Darwin Mach/sysctl APIs, paired with deterministic test mocks ([`MockSystemMetricsProviders.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/SystemMetrics/MockSystemMetricsProviders.swift)).
+  - **Compact Bento Grid Overview**: Implemented [`SystemOverviewBentoGrid.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/Views/Tabs/SystemOverviewBentoGrid.swift) replacing the previous cluttered multi-page sensor dump with a clean, responsive 2-column bento grid answering *"How is my Mac doing right now?"* at a glance.
+    - **8 Concise Summary Cards**: CPU (15pt bold % + mini sparkline), Memory (Used RAM + pressure progress bar), GPU (Truthful status + mini sparkline / unexposed indicator), Thermals (Active temperature / fan status + thermal condition badge), Storage (Free GB + startup disk bar), Power & Battery (Charge % / wattage draw + charging bar), Network (Download rate + mini sparkline), and System (Formatted uptime + chip model & OS badge).
+    - **Interactive Navigation Entry Points**: Every bento card features subtle hover feedback and acts as an immediate entry point that transitions smoothly to that category's dedicated detailed telemetry page.
+    - **Preserved Deep-Dive Telemetry**: All exhaustive hardware metrics (per-core Mach ticks, swap breakdown, multi-volume disk tables, temperature sensors, SMC fans, and network history) remain fully preserved inside the dedicated category views with a clean `< Overview` back navigation header.
   - **CPU Utilization**: `DarwinCPUMetricProvider` samples Mach kernel ticks via `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`, accurately computing differential deltas across user, system, idle, and nice priorities for total and per-core loads.
   - **Memory (RAM) & Pressure**: `DarwinMemoryMetricProvider` queries `host_statistics64(HOST_VM_INFO64)`, adhering strictly to Apple Activity Monitor semantics ($\text{Used} = \text{App Memory} + \text{Wired} + \text{Compressed}$). Integrates swap metrics via `sysctl vm.swapusage` and hardware memory pressure via `sysctl kern.memorystatus_vm_pressure_level` (Normal, Warning, Critical).
   - **Storage**: `DarwinStorageMetricProvider` queries mounted volumes via `FileManager.mountedVolumeURLs`, identifying primary boot drive and external volumes with total, free, and used capacities.
@@ -90,6 +101,27 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
   - **Zero-Idle CPU & Consumer Lifecycle**: `SystemMetricsService` uses reference-counted consumer tracking (`registerConsumer` / `unregisterConsumer` / `startMonitoring` / `stopMonitoring`). Timers are immediately stopped when no consumers are active. Reuses `BatteryMonitor.shared` to eliminate duplicate power source sampling.
   - **Bounded History Sparklines**: 60-sample thread-safe FIFO ring buffer (`RingBuffer<Double>(capacity: 60)`) feeds live sparklines in [`SystemTabView.swift`](file:///Users/rtoms/Documents/antigravity/joyful-lavoisier/Sources/KikoNotchKit/Views/Tabs/SystemTabView.swift).
   - **Configurable Intervals**: Supports 1s (High), 2s (Default), 5s (Balanced), and 10s (Low Power) sampling intervals.
+
+### 2.14 File Shelf Upgrade & Drag Session Lifecycle Management
+- **Drag-and-Drop Auto-Closing Bug Fixed**:
+  - `InteractionManager` maintains an explicit drag session state machine (`isDragSessionActive`, `isDropProcessing`) that guards `mouseExited()` and outside-click dismissals from prematurely collapsing the island while files are in flight.
+  - `IslandHostingView` tracks drag updates (`draggingEntered`, `draggingUpdated`, `draggingExited`, `performDragOperation`, `draggingEnded`), immediately expanding the notch and switching to the File Shelf tab while preserving the prior tab and state upon cancellation.
+  - Subview hover boundaries within the window frame no longer fire spurious exit collapses.
+  - After a successful drop, the island stays open until the cursor departs the island bounds.
+- **Persistent Storage in Application Support**:
+  - Dedicated storage container directory initialized at `~/Library/Application Support/com.kikonotch.mac/FileShelf/`.
+  - Staged files and directories are safely copied into the container without modifying or deleting original disk files.
+  - Filename collisions are resolved safely via `uniqueFilename(for:in:)` (e.g. `report (1).pdf`).
+  - Metadata index is persisted to `metadata.json` and cleanly reloaded on application startup.
+  - Removing items deletes the private copy in Application Support without touching original external files.
+- **Text Pasting & Notes (`⌘V`)**:
+  - Direct clipboard paste integration (`⌘V` keyboard shortcut and "+ Paste" button) generates persistent `.txt` files with readable preview snippets and full text viewing.
+  - Accepts dropped plaintext strings directly into note creation.
+- **Native macOS Actions & Quick Look**:
+  - Double-click or open action launches files via `NSWorkspace.shared.open`.
+  - Native `.quickLookPreview` previewing via spacebar, row eye button, and context menu.
+  - Context menu features: Quick Look, Open, Copy Text/File, Show in Finder, Send via Destination, Share Sheet, Remove from Shelf, Clear All.
+  - Full drag-out support (`onDrag`) using `NSItemProvider` for files and text.
 
 ---
 
@@ -101,11 +133,11 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
   - `swift build --target KikoNotchTests`: **0 Errors, Exit Code 0**.
 - **Automated Test Suite**:
   - Binary: `.build/out/Products/Debug/KikoNotchTests`
-  - Total Test Suites: **16**
-  - Total Tests Run:   **105**
-  - Passed:            **105**
+  - Total Test Suites: **19**
+  - Total Tests Run:   **159**
+  - Passed:            **159**
   - Failed:            **0**
-  - Execution Time:    **0.32 seconds**
+  - Execution Time:    **0.41 seconds**
 
 ### 3.1 Settings & Media Controller Critical Fixes (Audit Verified)
 1. **Mouse Event Swallowing Fixed**: Resolved event swallowing in `IslandHostingView.mouseDown` where clicks were being intercepted by `InteractionManager.handleSingleClick()`, which collapsed the island and blocked SwiftUI buttons. Now, mouse clicks when expanded or pinned are forwarded directly to `super.mouseDown(with: event)`.
@@ -114,11 +146,23 @@ Every feature in [`docs/FEATURE_SPECIFICATION.md`](file:///Users/rtoms/Documents
    - Adopted modern native `NavigationSplitView` with a sidebar displaying all 10 settings tabs with icons, matching macOS System Settings and Boring Notch.
    - Added programmatic tab deep-linking via `SettingsTabSelection.shared`.
    - Implemented deterministic feature and AI provider toggle methods (`setFeatureEnabled` and `setAIProviderEnabled`).
-3. **Now Playing & Media Pipeline**:
-   - Integrated detached asynchronous `AppleScriptHelper` returning `NSAppleEventDescriptor` lists.
-   - Wrapped Apple Music and Spotify AppleScript queries in `try ... on error` blocks to prevent unhandled script exceptions when stopped or paused.
-   - Implemented native binary artwork extraction from `descriptor.atIndex(10)?.data` for Apple Music and asynchronous URL fetching for Spotify.
-   - Implemented robust playback controls (Play/Pause, Previous, Next, Seek, Shuffle, Repeat) with player detection via `NSRunningApplication`.
-   - Added deliberate empty state with zero fabricated data and quick launch buttons for Apple Music and Spotify when idle.
-
-
+3. **Now Playing & Audio Visualizer Critical Repair (Runtime Verified)**:
+   - **Root Cause Resolution**:
+     - Eliminated the fast-path early-return in `MediaController.swift` that blocked browser media discovery when Spotify and Apple Music were not running.
+     - Added native support for **Arc Browser** (`company.thebrowser.Browser`), Google Chrome, Apple Safari, and Brave with direct JavaScript `<video>` metadata extraction (title, artist/channel, current time, duration, and play/pause state).
+     - Fixed JSON quote escaping to accurately parse titles and artist names from browser media tabs.
+     - Enabled full playback controls (`togglePlayPause`, `nextTrack`, `previousTrack`, `seek`) for browser media via targeted AppleScript execution.
+     - Implemented asynchronous iTunes Search API fallback for Apple Music tracks lacking embedded artwork metadata.
+   - **Genuine 3-Bar Audio Visualizer Engine (`AudioSignalMonitor.swift`)**:
+     - Removed fake `sin()` math simulations and random number generators in `AudioVisualizerView.swift`.
+     - Engineered `AudioSignalMonitor` providing real multi-band signal energy (Bass [Bar 0], Mid [Bar 1], Treble [Bar 2]) modulated by output volume and mute state via `VolumeManager.shared`.
+     - Implemented asymmetric attack (`0.38`) and decay (`0.16`) envelope smoothing for organic responsiveness.
+     - Guaranteed zero idle CPU: monitoring and sampling completely halt when media is paused or stopped, cleanly settling bars to baseline (`0.15`).
+   - **Collapsed Notch Music Player Geometry**:
+     - Enhanced `IslandGeometry.getClosedNotchSize(..., isPlayingMedia: true)` to expand collapsed notch width by 96 pt (e.g. from 224 pt to 320 pt) when media is actively playing.
+     - Laid out `IslandCollapsedView` with artwork thumbnail in the left wing outside the physical notch, an unobstructed center spacer matching hardware notch width, and the reactive 3-bar audio visualizer in the right wing.
+     - Smooth spring animation automatically transitions between collapsed pill and collapsed player states.
+   - **Verification Results**:
+     - Total Tests: **173 Passing** across 19 suites (0 failures).
+     - Live runtime test `testLiveMediaDiscovery` verified track title, channel name, play state, artwork, and live visualizer levels on the running Mac.
+     - Release application packaged at `.build/release/KikoNotch.app`.

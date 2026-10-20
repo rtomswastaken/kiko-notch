@@ -180,4 +180,65 @@ public final class ClaudeProvider: AIProviderAdapter, @unchecked Sendable {
             )
         }
     }
+
+    public func fetchQuotaSnapshot() async throws -> AIProviderQuotaSnapshot {
+        let refreshStart = Date()
+        let usage = try await fetchUsage()
+        let refreshEnd = Date()
+
+        if !usage.isAvailable {
+            let isAuth = usage.statusMessage.contains("Key") || usage.statusMessage.contains("401") || usage.statusMessage.contains("Authentication")
+            let diag = AIProviderDiagnostics(
+                providerID: id,
+                dataSource: apiKey != nil ? "Anthropic API" : "Local Claude CLI (~/.claude)",
+                lastRefreshStart: refreshStart,
+                lastRefreshCompletion: refreshEnd,
+                isRefreshing: false,
+                parsingOutcome: "Unavailable",
+                errorCategory: isAuth ? "AuthRequired" : "NotFound",
+                statusMessage: usage.statusMessage
+            )
+            return AIProviderQuotaSnapshot(
+                providerID: id,
+                displayName: displayName,
+                timestamp: refreshEnd,
+                isAvailable: false,
+                statusMessage: usage.statusMessage,
+                quotas: [
+                    isAuth ? .authRequired(window: .fiveHour, reason: usage.statusMessage) : .unavailable(window: .fiveHour, reason: usage.statusMessage),
+                    isAuth ? .authRequired(window: .weekly, reason: usage.statusMessage) : .unavailable(window: .weekly, reason: usage.statusMessage),
+                    isAuth ? .authRequired(window: .monthly, reason: usage.statusMessage) : .unavailable(window: .monthly, reason: usage.statusMessage)
+                ],
+                diagnostics: diag
+            )
+        }
+
+        let diag = AIProviderDiagnostics(
+            providerID: id,
+            dataSource: apiKey != nil ? "https://api.anthropic.com/v1/models" : "~/.claude",
+            lastRefreshStart: refreshStart,
+            lastRefreshCompletion: refreshEnd,
+            lastSuccessfulRefresh: refreshEnd,
+            isRefreshing: false,
+            parsingOutcome: "Connected",
+            errorCategory: nil,
+            statusMessage: usage.statusMessage
+        )
+
+        return AIProviderQuotaSnapshot(
+            providerID: id,
+            displayName: displayName,
+            timestamp: refreshEnd,
+            isAvailable: true,
+            statusMessage: usage.statusMessage,
+            quotas: [
+                .unsupported(window: .fiveHour, reason: "Anthropic models API does not expose remaining quota"),
+                .unsupported(window: .weekly, reason: "Anthropic models API does not expose remaining quota"),
+                .unsupported(window: .monthly, reason: "Anthropic models API does not expose remaining quota")
+            ],
+            sessionTokens: usage.sessionTokens,
+            sessionRequests: usage.sessionRequests,
+            diagnostics: diag
+        )
+    }
 }

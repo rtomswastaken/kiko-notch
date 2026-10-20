@@ -6,33 +6,29 @@ public struct SettingsTabView: View {
     @ObservedObject public var settings = SettingsManager.shared
     @ObservedObject public var themeManager = ThemeManager.shared
     @State private var selectedSection: SettingsSection = .general
-    
+
     public enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
         case appearance = "Appearance"
-        case displays = "Displays"
-        case features = "Features"
-        case providers = "AI Providers"
-        case media = "Media"
+        case hud = "HUD"
+        case ai = "AI"
         case about = "About"
-        
+
         public var id: String { rawValue }
-        
+
         public var iconName: String {
             switch self {
             case .general: return "gearshape.fill"
             case .appearance: return "paintbrush.fill"
-            case .displays: return "display"
-            case .features: return "switch.2"
-            case .providers: return "sparkles"
-            case .media: return "music.note"
+            case .hud: return "slider.horizontal.3"
+            case .ai: return "sparkles"
             case .about: return "info.circle.fill"
             }
         }
     }
-    
+
     public init() {}
-    
+
     public var body: some View {
         VStack(spacing: 10) {
             // Horizontal Section Selector & Full Settings Launch Button
@@ -45,7 +41,7 @@ public struct SettingsTabView: View {
                     }
                     .padding(.horizontal, 4)
                 }
-                
+
                 Button(action: {
                     SettingsWindowController.shared.showSettings()
                 }) {
@@ -63,9 +59,9 @@ public struct SettingsTabView: View {
                 .buttonStyle(.plain)
                 .help("Open Full Settings Window")
             }
-            
+
             Divider().background(Color.white.opacity(0.08))
-            
+
             // Section Content Body
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 10) {
@@ -74,14 +70,10 @@ public struct SettingsTabView: View {
                         GeneralSettingsView()
                     case .appearance:
                         AppearanceSettingsView()
-                    case .displays:
-                        DisplaySettingsView()
-                    case .features:
-                        FeatureToggleSettingsView()
-                    case .providers:
+                    case .hud:
+                        HUDSettingsView()
+                    case .ai:
                         AIProvidersSettingsView()
-                    case .media:
-                        MediaSettingsView()
                     case .about:
                         AboutSettingsView()
                     }
@@ -90,8 +82,9 @@ public struct SettingsTabView: View {
                 .padding(.bottom, 6)
             }
         }
+        .notchPageViewport()
     }
-    
+
     @ViewBuilder
     private func sectionButton(for section: SettingsSection) -> some View {
         let isSelected = selectedSection == section
@@ -102,7 +95,7 @@ public struct SettingsTabView: View {
         }) {
             HStack(spacing: 4) {
                 Image(systemName: section.iconName)
-                    .font(.system(size: 10))
+                    .font(.system(size: 9))
                 Text(section.rawValue)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
             }
@@ -110,13 +103,8 @@ public struct SettingsTabView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
-                Group {
-                    if isSelected {
-                        Capsule().fill(Color.white.opacity(0.16))
-                    } else {
-                        Capsule().fill(Color.white.opacity(0.04))
-                    }
-                }
+                Capsule()
+                    .fill(isSelected ? Color.white.opacity(0.16) : Color.white.opacity(0.04))
             )
         }
         .buttonStyle(.plain)

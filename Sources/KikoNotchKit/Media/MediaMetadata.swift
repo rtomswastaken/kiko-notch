@@ -12,10 +12,11 @@ public struct MediaMetadata: Sendable, Equatable {
     public var playerApp: String
     public var isShuffle: Bool
     public var isRepeat: Bool
-    
+    public var canControl: Bool
+
     // We store artwork data or reference safely for sendable equality
     public var artworkData: Data?
-    
+
     public init(
         title: String = "",
         artist: String = "",
@@ -26,6 +27,7 @@ public struct MediaMetadata: Sendable, Equatable {
         playerApp: String = "None",
         isShuffle: Bool = false,
         isRepeat: Bool = false,
+        canControl: Bool = true,
         artworkData: Data? = nil
     ) {
         self.title = title
@@ -37,31 +39,32 @@ public struct MediaMetadata: Sendable, Equatable {
         self.playerApp = playerApp
         self.isShuffle = isShuffle
         self.isRepeat = isRepeat
+        self.canControl = canControl
         self.artworkData = artworkData
     }
-    
+
     public var artworkImage: NSImage? {
         guard let data = artworkData else { return nil }
         return NSImage(data: data)
     }
-    
+
     public var artwork: NSImage? {
         artworkImage
     }
-    
+
     public var displayTitle: String {
         title.isEmpty ? "No Media Playing" : title
     }
-    
+
     public var displayArtist: String {
         artist.isEmpty ? "Unknown Artist" : artist
     }
-    
+
     public var progress: Double {
         guard duration > 0 else { return 0 }
         return min(max(elapsedTime / duration, 0.0), 1.0)
     }
-    
+
     public static func formatTime(_ seconds: Double) -> String {
         guard !seconds.isNaN && !seconds.isInfinite && seconds >= 0 else { return "0:00" }
         let totalSecs = Int(seconds)
@@ -69,21 +72,21 @@ public struct MediaMetadata: Sendable, Equatable {
         let secs = totalSecs % 60
         return String(format: "%d:%02d", mins, secs)
     }
-    
+
     public var elapsedFormatted: String {
         Self.formatTime(elapsedTime)
     }
-    
+
     public var remainingFormatted: String {
         let remaining = max(0.0, duration - elapsedTime)
         return "-\(Self.formatTime(remaining))"
     }
-    
+
     // Convenience aliases for UI tab bindings
     public var formattedElapsed: String { elapsedFormatted }
     public var formattedRemaining: String { remainingFormatted }
     public var isShuffled: Bool { isShuffle }
     public var isRepeating: Bool { isRepeat }
-    
+
     public static let empty = MediaMetadata()
 }

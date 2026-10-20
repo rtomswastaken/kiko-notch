@@ -5,7 +5,7 @@ import KikoNotchKit
 final class KikoTestObserver: NSObject, XCTestObservation {
     var passedCount = 0
     var failedCount = 0
-    
+
     func testCaseDidFinish(_ testCase: XCTestCase) {
         if testCase.testRun?.hasSucceeded == true {
             passedCount += 1
@@ -43,7 +43,10 @@ let testClasses: [XCTestCase.Type] = [
     SystemIntegrationTests.self,
     AIProviderTests.self,
     NavigationTests.self,
-    SystemMetricsTests.self
+    SystemMetricsTests.self,
+    SystemActivityTests.self,
+    WakaTimeTests.self,
+    AIDashboardTests.self
 ]
 
 var totalTests = 0
@@ -54,7 +57,7 @@ for testClass in testClasses {
     print("\n--- Running Suite: \(suiteName) ---")
     let suite = XCTestSuite(forTestCaseClass: testClass)
     suite.run()
-    
+
     if let run = suite.testRun {
         totalTests += Int(run.testCaseCount)
         totalFailures += Int(run.totalFailureCount)

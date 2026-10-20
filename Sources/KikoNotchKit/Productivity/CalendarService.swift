@@ -10,23 +10,23 @@ public struct CalendarEventItem: Identifiable, Sendable, Equatable {
     public let endDate: Date
     public let isAllDay: Bool
     public let location: String?
-    
+
     public var calendarColor: NSColor {
         .systemBlue
     }
-    
+
     public var formattedStartTime: String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: startDate)
     }
-    
+
     public var formattedEndTime: String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: endDate)
     }
-    
+
     public init(id: String, title: String, startDate: Date, endDate: Date, isAllDay: Bool, location: String? = nil) {
         self.id = id
         self.title = title
@@ -35,13 +35,13 @@ public struct CalendarEventItem: Identifiable, Sendable, Equatable {
         self.isAllDay = isAllDay
         self.location = location
     }
-    
+
     public var countdownDescription: String {
         let now = Date()
         if now >= startDate && now <= endDate {
             return "Now: \(title)"
         }
-        
+
         let diffMinutes = Int(startDate.timeIntervalSince(now) / 60)
         if diffMinutes < 1 {
             return "Starting now: \(title)"
@@ -71,17 +71,19 @@ public enum CalendarAuthorizationStatus: Sendable {
 @MainActor
 public final class CalendarService: ObservableObject {
     public static let shared = CalendarService()
-    
+
     @Published public private(set) var events: [CalendarEventItem] = []
     @Published public private(set) var nextEventCountdown: String?
     @Published public private(set) var authStatus: CalendarAuthorizationStatus = .notDetermined
-    
+    @Published public private(set) var isRequestingAccess: Bool = false
+
     private let eventStore = EKEventStore()
-    
+    private var cachedMonthDate: Date?
+
     public init() {
         updateAuthorizationStatus()
     }
-    
+
     public func updateAuthorizationStatus() {
         let status = EKEventStore.authorizationStatus(for: .event)
         switch status {
@@ -97,8 +99,12 @@ public final class CalendarService: ObservableObject {
             self.authStatus = .notDetermined
         }
     }
-    
+
     public func requestAccess() async -> Bool {
+        guard !isRequestingAccess else { return false }
+        isRequestingAccess = true
+        defer { isRequestingAccess = false }
+
         do {
             let granted: Bool
             if #available(macOS 14.0, *) {
@@ -116,21 +122,45 @@ public final class CalendarService: ObservableObject {
             return false
         }
     }
-    
-    public func refreshEvents() {
+
+    public func openSystemSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    public func events(for date: Date) -> [CalendarEventItem] {
+        let calendar = Calendar.current
+        return events.filter { event in
+            calendar.isDate(event.startDate, inSameDayAs: date) ||
+            (event.startDate <= date && event.endDate >= date)
+        }.sorted { $0.startDate < $1.startDate }
+    }
+
+    public func hasEvents(on date: Date) -> Bool {
+        !events(for: date).isEmpty
+    }
+
+    public func fetchEvents(forMonthContaining date: Date) {
         guard authStatus == .authorized else {
             self.events = []
             self.nextEventCountdown = nil
             return
         }
-        
+
         let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
-        
-        let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfDay, calendars: nil)
+        guard let monthInterval = calendar.dateInterval(of: .month, for: date) else {
+            refreshEvents()
+            return
+        }
+
+        // Expand range by 7 days on both ends to cover calendar grid edge days
+        let start = calendar.date(byAdding: .day, value: -7, to: monthInterval.start) ?? monthInterval.start
+        let end = calendar.date(byAdding: .day, value: 7, to: monthInterval.end) ?? monthInterval.end
+
+        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
         let rawEvents = eventStore.events(matching: predicate)
-        
+
         let items = rawEvents
             .sorted { $0.startDate < $1.startDate }
             .map {
@@ -143,18 +173,26 @@ public final class CalendarService: ObservableObject {
                     location: $0.location
                 )
             }
-        
+
         self.events = items
-        
-        // Find next upcoming or ongoing event
+        self.cachedMonthDate = date
+
         let now = Date()
-        if let next = items.first(where: { $0.endDate > now }) {
+        if let next = items.first(where: { $0.endDate > now && calendar.isDate($0.startDate, inSameDayAs: now) }) {
             self.nextEventCountdown = next.countdownDescription
         } else {
             self.nextEventCountdown = nil
         }
     }
-    
+
+    public func refreshEvents() {
+        fetchEvents(forMonthContaining: cachedMonthDate ?? Date())
+    }
+
+    public func fetchUpcomingEvents(hoursAhead: Int = 24) {
+        refreshEvents()
+    }
+
     /// Test helper for simulating events without EventKit authorization in unit tests
     public func setSimulatedEvents(_ items: [CalendarEventItem]) {
         self.events = items
@@ -165,7 +203,7 @@ public final class CalendarService: ObservableObject {
             self.nextEventCountdown = nil
         }
     }
-    
+
     /// Test helper for simulating authorization changes
     public func setSimulatedAuthStatus(_ status: CalendarAuthorizationStatus) {
         self.authStatus = status

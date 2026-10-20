@@ -122,33 +122,24 @@ public final class ThemeManager: ObservableObject, @unchecked Sendable {
         }
     }
     
-    /// Returns active effective foreground color for texts
+    /// Returns active effective foreground color for texts (crisp pure white for dark notch background)
     public var primaryTextColor: Color {
-        switch currentTheme {
-        case .light, .liquidGlassLight:
-            return Color.black.opacity(0.88)
-        case .dark, .liquidGlassDark:
-            return Color.white.opacity(0.92)
-        case .automatic:
-            return Color.primary
-        case .custom:
-            let bgOpacity = colors.backgroundOpacity
-            return bgOpacity > 0.6 ? Color.white : Color.primary
-        }
+        Color.white
     }
     
-    /// Returns secondary label color
+    /// Returns secondary label color (light white for high legibility on dark glass)
     public var secondaryTextColor: Color {
-        switch currentTheme {
-        case .light, .liquidGlassLight:
-            return Color.black.opacity(0.55)
-        case .dark, .liquidGlassDark:
-            return Color.white.opacity(0.60)
-        case .automatic:
-            return Color.secondary
-        case .custom:
-            return Color.secondary
-        }
+        Color.white.opacity(0.70)
+    }
+
+    /// Dynamic multi-color accent palette coordinated by AccentThemeManager
+    public var accentPalette: AccentPalette {
+        AccentThemeManager.shared.currentPalette
+    }
+
+    /// Dynamic multi-color linear gradient
+    public var accentGradient: LinearGradient {
+        AccentThemeManager.shared.linearGradient
     }
     
     /// Returns current theme profile

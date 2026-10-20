@@ -4,91 +4,122 @@ import SwiftUI
 import Combine
 
 /// Native AppKit Window and Panel Controller for Kiko Notch Floating Island
+/// Built on the Boring Notch window foundation (fixed top-anchored panel).
 @MainActor
 public final class IslandWindowController: NSObject, ObservableObject {
     public static let shared = IslandWindowController()
-    
+
     public private(set) var window: IslandPanel?
     private var cancellables = Set<AnyCancellable>()
     private var isUpdatingFrame = false
-    
+    private var trackpadScrollMonitor: Any?
+
     private override init() {
         super.init()
     }
-    
+
     /// Initializes and presents the floating island window
     public func showIsland() {
         guard window == nil else {
             window?.orderFrontRegardless()
             return
         }
-        
-        // 1. Calculate initial frame for collapsed state
+
         DisplayManager.shared.updateScreenConfiguration()
-        let initialFrame = DisplayManager.shared.frame(for: .collapsed)
-        
-        // 2. Configure Non-Activating Borderless Panel
+        let targetScreen = DisplayManager.shared.targetScreen
+        let screenFrame = targetScreen.frame
+        let windowWidth = IslandGeometry.windowSize.width
+        let windowHeight = IslandGeometry.windowSize.height
+
+        let initialOrigin = NSPoint(
+            x: screenFrame.origin.x + (screenFrame.width - windowWidth) / 2,
+            y: screenFrame.origin.y + screenFrame.height - windowHeight
+        )
+        let initialFrame = NSRect(origin: initialOrigin, size: IslandGeometry.windowSize)
+
+        // Configure Non-Activating Borderless Panel at mainMenu + 3 / statusBar
         let panel = IslandPanel(contentRect: initialFrame)
-        
-        // 3. Screen Capture Exclusion (CORE-010)
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.updateScreenCaptureSharing()
-        
-        // 4. Set Hosting View
+
+        // Set Hosting View with IslandContainerView
         let hostingView = IslandHostingView(rootView: IslandContainerView())
         hostingView.frame = NSRect(origin: .zero, size: initialFrame.size)
         hostingView.autoresizingMask = [.width, .height]
         panel.contentView = hostingView
-        
+
         self.window = panel
+        InteractionManager.shared.isPointerInsideIsland = { [weak panel] in
+            guard let panel else { return false }
+            return panel.frame.contains(NSEvent.mouseLocation)
+        }
+        panel.setIsVisible(true)
         panel.orderFrontRegardless()
-        
-        // 5. Setup Observers for State, Display, Geometry, and Screen Capture
+
+        NSLog("[Kiko Notch] Boring-Notch foundation window presented at \(panel.frame)")
+
         setupBindings()
     }
-    
+
     private func setupBindings() {
-        // State changes -> Animate window geometry
-        InteractionManager.shared.onStateChange = { [weak self] newState in
-            self?.updateWindowFrame(for: newState)
-        }
-        
-        // Screen parameters or Display changes
+        // Screen parameters or Display changes -> reposition panel
         DisplayManager.shared.$targetScreen
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                self.updateWindowFrame(for: InteractionManager.shared.currentState)
+            .sink { [weak self] screen in
+                self?.repositionWindow(on: screen)
             }
             .store(in: &cancellables)
-        
-        // Geometry preference updates
-        SettingsManager.shared.$geometry
+
+        NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                guard let self = self else { return }
-                self.updateWindowFrame(for: InteractionManager.shared.currentState)
+                DisplayManager.shared.updateScreenConfiguration()
+                self?.repositionWindow(on: DisplayManager.shared.targetScreen)
             }
             .store(in: &cancellables)
-            
+
         // Screen capture preference updates
         SettingsManager.shared.$hideFromScreenCapture
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                guard let self = self, let panel = self.window else { return }
-                panel.updateScreenCaptureSharing()
+                self?.window?.updateScreenCaptureSharing()
             }
             .store(in: &cancellables)
-    }
-    
-    public func updateWindowFrame(for state: IslandDisplayState) {
-        guard let panel = window, !isUpdatingFrame else { return }
-        isUpdatingFrame = true
-        
-        let targetRect = DisplayManager.shared.frame(for: state)
-        
-        IslandAnimationEngine.animate(window: panel, to: targetRect, for: state) { [weak self] in
-            self?.isUpdatingFrame = false
+
+        // Native trackpad swipe navigation local event monitor
+        trackpadScrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self = self, let panel = self.window, event.window == panel else {
+                return event
+            }
+            let isExpanded = InteractionManager.shared.currentState == .expanded || InteractionManager.shared.currentState == .pinned
+            if isExpanded && event.hasPreciseScrollingDeltas {
+                let didTrigger = TrackpadSwipeHandler.shared.handleScrollWheel(event: event)
+                if didTrigger {
+                    return nil // Consumed horizontal swipe gesture
+                }
+            }
+            return event
         }
+    }
+
+    /// Positions the fixed-size panel cleanly at the top-center of the screen
+    public func repositionWindow(on screen: NSScreen? = nil) {
+        guard let panel = window else { return }
+        let targetScreen = screen ?? DisplayManager.shared.targetScreen
+        let screenFrame = targetScreen.frame
+        let windowWidth = IslandGeometry.windowSize.width
+        let windowHeight = IslandGeometry.windowSize.height
+
+        let newOrigin = NSPoint(
+            x: screenFrame.origin.x + (screenFrame.width - windowWidth) / 2,
+            y: screenFrame.origin.y + screenFrame.height - windowHeight
+        )
+        panel.setFrameOrigin(newOrigin)
+    }
+
+    /// Compatibility method for tests; ensures correct placement without jarring window resizes
+    public func updateWindowFrame(for state: IslandDisplayState) {
+        repositionWindow()
     }
 }
 
@@ -118,7 +149,7 @@ public class IslandPanel: NSPanel {
         ]
         updateScreenCaptureSharing()
     }
-    
+
     public func updateScreenCaptureSharing() {
         if SettingsManager.shared.hideFromScreenCapture {
             self.sharingType = .none
@@ -126,103 +157,165 @@ public class IslandPanel: NSPanel {
             self.sharingType = .readOnly
         }
     }
-    
+
     public override var canBecomeKey: Bool {
         return false
     }
-    
+
     public override var canBecomeMain: Bool {
         return false
     }
 }
 
-// MARK: - Custom NSHostingView with Event Tracking & Drag Drop
+// MARK: - Custom NSHostingView with Drag Drop Staging
 
 public final class IslandHostingView: NSHostingView<IslandContainerView> {
-    private var trackingAreaRef: NSTrackingArea?
-    
     @MainActor public required init(rootView: IslandContainerView) {
         super.init(rootView: rootView)
-        registerForDraggedTypes([.fileURL])
+        registerForDraggedTypes([.fileURL, .string])
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        registerForDraggedTypes([.fileURL])
+        registerForDraggedTypes([.fileURL, .string])
     }
-    
-    public override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let existing = trackingAreaRef {
-            removeTrackingArea(existing)
-        }
-        let tracking = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(tracking)
-        self.trackingAreaRef = tracking
-    }
-    
-    public override func mouseEntered(with event: NSEvent) {
-        InteractionManager.shared.mouseEntered()
-    }
-    
-    public override func mouseExited(with event: NSEvent) {
-        InteractionManager.shared.mouseExited()
-    }
-    
-    public override func mouseDown(with event: NSEvent) {
-        if InteractionManager.shared.currentState == .collapsed || InteractionManager.shared.currentState == .peek {
-            if event.clickCount == 2 {
-                InteractionManager.shared.handleDoubleClick()
-            } else {
-                InteractionManager.shared.handleSingleClick()
-            }
-        } else {
-            super.mouseDown(with: event)
-        }
-    }
-    
+
     public override func rightMouseDown(with event: NSEvent) {
         InteractionManager.shared.handleRightClick(with: event, in: self)
     }
-    
+
     public override func scrollWheel(with event: NSEvent) {
-        InteractionManager.shared.handleScrollWheel(deltaY: event.scrollingDeltaY)
+        let isExpanded = InteractionManager.shared.currentState == .expanded || InteractionManager.shared.currentState == .pinned
+
+        // 1. In collapsed state: downward trackpad swipe expands the island
+        if !isExpanded {
+            if event.scrollingDeltaY < -3.0 && InteractionManager.shared.currentState == .collapsed {
+                InteractionManager.shared.transition(to: .expanded)
+            }
+            return
+        }
+
+        // 2. In expanded state: check for horizontal trackpad swipe navigation
+        let didTriggerSwipe = TrackpadSwipeHandler.shared.handleScrollWheel(event: event)
+        if didTriggerSwipe {
+            return
+        }
+
+        // 3. Forward vertical/content scroll events down to SwiftUI (SystemTabView ScrollView, etc.)
+        super.scrollWheel(with: event)
     }
-    
-    // MARK: - Drag and Drop File Staging (FILES-001)
-    
+
+    // MARK: - Drag and Drop File Staging
+
+    private var priorStateBeforeDrag: IslandDisplayState?
+    private var priorTabBeforeDrag: IslandTab?
+
     public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let pasteboard = sender.draggingPasteboard
-        if pasteboard.canReadItem(withDataConformingToTypes: [NSPasteboard.PasteboardType.fileURL.rawValue]) {
-            // Expand island to receive files
-            if InteractionManager.shared.currentState != .expanded {
-                InteractionManager.shared.transition(to: .expanded)
+        let canRead = pasteboard.canReadItem(withDataConformingToTypes: [
+            NSPasteboard.PasteboardType.fileURL.rawValue,
+            NSPasteboard.PasteboardType.string.rawValue
+        ])
+        if canRead {
+            if priorStateBeforeDrag == nil {
+                priorStateBeforeDrag = InteractionManager.shared.currentState
+            }
+            if priorTabBeforeDrag == nil {
+                priorTabBeforeDrag = IslandNavigationModel.shared.activeTab
+            }
+            InteractionManager.shared.beginDragSession()
+            IslandNavigationModel.shared.selectTab(.fileShelf)
+            return .copy
+        }
+        return []
+    }
+
+    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let pasteboard = sender.draggingPasteboard
+        let canRead = pasteboard.canReadItem(withDataConformingToTypes: [
+            NSPasteboard.PasteboardType.fileURL.rawValue,
+            NSPasteboard.PasteboardType.string.rawValue
+        ])
+        if canRead {
+            if !InteractionManager.shared.isDragSessionActive {
+                InteractionManager.shared.beginDragSession()
             }
             return .copy
         }
         return []
     }
-    
-    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let pasteboard = sender.draggingPasteboard
-        guard let items = pasteboard.pasteboardItems else { return false }
-        
-        var urls: [URL] = []
-        for item in items {
-            if let stringURL = item.string(forType: .fileURL), let url = URL(string: stringURL) {
-                urls.append(url)
+
+    public override func draggingExited(_ sender: NSDraggingInfo?) {
+        // If the pointer is still inside the window frame, do not prematurely collapse.
+        // This prevents AppKit subview transitions or internal SwiftUI boundaries from closing the island.
+        if let window = self.window {
+            let screenMouse = NSEvent.mouseLocation
+            if window.frame.contains(screenMouse) {
+                return
             }
         }
-        
-        if !urls.isEmpty {
-            FileShelfManager.shared.addFiles(urls: urls)
+
+        // The drag truly left the island window
+        InteractionManager.shared.endDragSession(completedDrop: false)
+
+        if let priorState = priorStateBeforeDrag {
+            if priorState == .collapsed {
+                InteractionManager.shared.transition(to: .collapsed)
+            }
+            priorStateBeforeDrag = nil
+        }
+        if let priorTab = priorTabBeforeDrag {
+            IslandNavigationModel.shared.selectTab(priorTab)
+            priorTabBeforeDrag = nil
+        }
+    }
+
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        InteractionManager.shared.isDropProcessing = true
+        defer {
+            InteractionManager.shared.isDropProcessing = false
+            InteractionManager.shared.endDragSession(completedDrop: true)
+            priorStateBeforeDrag = nil
+            priorTabBeforeDrag = nil
+        }
+
+        let pasteboard = sender.draggingPasteboard
+
+        // 1. Files
+        if let items = pasteboard.pasteboardItems {
+            var urls: [URL] = []
+            for item in items {
+                if let stringURL = item.string(forType: .fileURL), let url = URL(string: stringURL) {
+                    urls.append(url)
+                }
+            }
+            if !urls.isEmpty {
+                FileShelfManager.shared.addFiles(urls: urls)
+                return true
+            }
+        }
+
+        // 2. Text
+        if let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            _ = FileShelfManager.shared.addPastedText(text)
             return true
         }
+
         return false
+    }
+
+    public override func draggingEnded(_ sender: NSDraggingInfo) {
+        // If a drop was cancelled or ended outside
+        InteractionManager.shared.endDragSession(completedDrop: false)
+        if let priorState = priorStateBeforeDrag {
+            if priorState == .collapsed {
+                InteractionManager.shared.transition(to: .collapsed)
+            }
+            priorStateBeforeDrag = nil
+        }
+        if let priorTab = priorTabBeforeDrag {
+            IslandNavigationModel.shared.selectTab(priorTab)
+            priorTabBeforeDrag = nil
+        }
     }
 }
