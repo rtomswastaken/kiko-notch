@@ -1,166 +1,107 @@
-<div align="center">
-
-<img src="assets/logo.png" alt="Kiko Notch Logo" width="128" height="128" />
-
 # Kiko Notch
 
-**A native macOS notch companion experiment.**
+A native macOS notch companion and expandable dynamic island application built with Swift, AppKit, and SwiftUI.
 
-</div>
+## Overview
 
-> [!WARNING]
-> ### 🚧 STATUS: IN DEVELOPMENT — PROOF OF CONCEPT
-> **Kiko Notch is an experimental native macOS application currently under active development.**
-> It explores a Dynamic Island-style companion experience for macOS. The project is a **Proof of Concept (PoC)** and is **NOT production-ready**.
->
-> - Features, user interface designs, architecture, and internal APIs may change rapidly.
-> - Certain features are incomplete, experimental, or dependent on hardware and platform permissions.
-> - **Build success and passing unit tests do not guarantee that every feature functions correctly at runtime** across all macOS versions and hardware configurations.
-> - Use at your own risk in personal development environments.
+Kiko Notch transforms the MacBook camera notch—or floating pill on displays without a notch—into an interactive island interface. It provides glanceable system telemetry, media playback controls with dynamic gradient accents derived from artwork, an active file shelf, AI usage dashboards, and on-island system HUDs, all running with zero idle sensor overhead.
 
----
+## Features
 
-## 1. Overview
+### Dynamic Multi-Color Gradient Accents
+- Extracts coordinated two- or three-color palettes from active album artwork or video thumbnails using a local 12-hue-bin quantization engine.
+- Dynamically tints the collapsed mini-player border, real-time 3-bar audio visualizer, playback controls, navigation pill indicators, and hardware telemetry graphs.
+- Smooth 0.85-second cubic ease transitions between tracks with normalized stop counts to eliminate visual flicker.
+- Retains artwork palette during paused playback, and smoothly reverts to a clean monochrome white theme when playback stops.
 
-**Kiko Notch** is an open-source macOS status companion designed to turn the MacBook display notch (or a floating notch-style island on non-notch displays) into a functional, glanceable, and interactive productivity hub. Built natively in **Swift**, **AppKit**, and **SwiftUI**, Kiko Notch aims to deliver a fluid, high-performance experience with zero idle CPU overhead.
+### Universal Media Playback & Visualizer
+- Detects media metadata and playback states across Apple Music, Spotify, YouTube in web browsers, and system audio sessions.
+- Real-time 3-bar audio spectrum visualizer (Bass, Mid, Treble) rendered using dynamic gradient color stops.
+- Interactive playback controls for play/pause, track skipping, and scrubbing progress bars.
 
-### Key Conceptual Pillars
-- **Native & Lightweight**: Built directly on AppKit and SwiftUI with zero external non-Apple runtime dependencies.
-- **Display Agnostic**: Automatically detects physical display notches (`NSScreen.auxiliaryTopLeftArea`) or simulates a floating island on external monitors and notchless Macs.
-- **Zero-Idle Efficiency**: Timer-free resting state. Audio visualizers, sensor polling, and animations halt when the island is collapsed.
-- **Privacy First**: All clipboard history, local usage statistics, and credentials stay on your device. Zero telemetry SDKs or analytics trackers.
+### System Activity & Hardware Telemetry
+- Real-time CPU utilization sampled via Mach kernel APIs (`host_processor_info`) with a 60-sample historical sparkline.
+- Memory breakdown (active, wired, compressed, free) and memory pressure levels via Mach VM statistics.
+- Storage capacity, used space, and free volume tracking via `FileManager`.
+- Network download and upload throughput measured via `getifaddrs`.
+- Power management and battery diagnostics via `IOPowerSources` (charging state, wattage draw, condition, time remaining).
+- Thermal state monitoring and fan cooling speeds via SMC and IOKit.
+- GPU device identification and memory details via Metal.
 
----
+### File Shelf
+- Drag-and-drop staging zone for temporary file management and quick transfers.
+- Integrated QuickLook preview generation.
+- Native AirDrop sharing and file sender service.
 
-## 2. Current Development Status
+### AI Usage & Developer Dashboard
+- Quota tracking and session metrics for Antigravity, Claude, and Codex with secure Keychain credential storage.
+- Developer activity integration via WakaTime API for daily and weekly coding time summaries.
 
-Kiko Notch is in active pre-release development (**v0.1.0-alpha / Proof of Concept**).
+### System HUD Overlays
+- Non-intrusive on-island HUD indicators for volume, display brightness, and keyboard backlight adjustments.
 
-- **Current State**: Core window architecture, event-handling mechanics, multi-tab navigation model, and Darwin system sampling engines are implemented.
-- **Stability**: Alpha quality. While all core unit tests pass (105/105 tests across 16 test suites), unexpected edge cases may occur when interacting with varied external displays, multi-monitor arrangements, or differing macOS permission configurations.
-- **Architecture**: Incorporates architectural patterns and open-source foundations inspired by [Boring Notch](https://github.com), adapted for an expandable multi-tab workspace and Darwin system metrics.
+## Requirements
 
----
+- macOS 13.0 (Ventura) or later
+- Apple Silicon (M1/M2/M3/M4) or Intel Mac
+- Swift 5.9+ / Xcode 15.0+ or macOS Command Line Tools 27.0+
 
-## 3. Experimental Features
+## Building and Packaging
 
-The table below provides an honest assessment of current features across four distinct readiness tiers:
-
-| Feature / Module | Tier | Description & Current State |
-|---|---|---|
-| **Floating Island Window** | **Implemented** | Non-activating `NSPanel` floating at `.statusBar + 1` level with smooth spring animations and click-outside dismissal. |
-| **Physical Notch Detection** | **Implemented** | Screen geometry inspection via `auxiliaryTopLeftArea`; anchors seamlessly beneath the hardware notch. |
-| **Simulated Notch (Pill Mode)** | **Implemented** | Floating pill positioned near the top-center on displays without a physical notch. |
-| **Multi-Tab Navigation** | **Implemented** | 8 dedicated destinations (Home, File Shelf, AI Usage, Now Playing, Agenda, System, Weather, Settings). |
-| **Darwin System Metrics (CPU/RAM/Disk/Net)** | **Implemented** | Real-time sampling via Mach kernel (`host_processor_info`), VM statistics, `sysctl`, `FileManager`, and `getifaddrs`. |
-| **Bounded Metric Sparklines** | **Implemented** | 60-sample thread-safe FIFO ring buffer feeding live SVG/SwiftUI charts with zero memory leaks. |
-| **GPU Telemetry** | **Implemented** | Metal device inspection (`MTLCreateSystemDefaultDevice`). Truthfully reports execution utilization as unavailable due to Apple Silicon private entitlement restrictions. |
-| **Battery & Power Monitoring** | **Implemented** | Event-driven `IOPowerSources` listener tracking battery percentage, charging state, and time remaining. |
-| **Per-Event System HUDs** | **Implemented** | Real-time on-island overlays for volume, display brightness, and keyboard backlight adjustments. |
-| **File Shelf & Drag-and-Drop** | **Experimental** | `NSDraggingDestination` staging area with QuickLook preview generation and native AirDrop handoff. |
-| **Now Playing & Audio Controls** | **Experimental** | AppleScript / DistributedNotification bridge for Apple Music & Spotify. Play/pause, track seeking, album art, and audio visualizer. |
-| **Clipboard History** | **Experimental** | Low-overhead `pasteboard.changeCount` monitor with ConcealedType password exclusion. |
-| **AI Provider Usage Monitor** | **Experimental** | Local quota/session inspection for Antigravity, with optional API connectors for Codex and Claude via macOS Keychain. |
-| **Weather Integration** | **Experimental** | Open-Meteo REST client with offline caching and automatic CoreLocation coordinates. |
-| **Calendar & Reminders Agenda** | **Experimental** | EventKit reader displaying upcoming events and task checklists with permission fallback prompts. |
-| **Multi-Display Dynamic Re-anchoring** | **Not yet verified** | Code handles `didChangeScreenParametersNotification`, but full multi-monitor layout transitions need broader physical hardware testing. |
-| **Bluetooth Peripheral Battery Tracking** | **Not yet verified** | `IOBluetoothDevice` peripheral battery polling requires verification across varied third-party accessory chipsets. |
-| **Download Progress Hook** | **Not yet verified** | `FSEventStream` watching `~/Downloads` for browser temporary files (`.crdownload`, `.download`, etc.). |
-| **Global Hotkey Daemon** | **Planned** | Configurable system-wide shortcuts for island toggling and quick actions. |
-| **Custom Plugin / Extension Ecosystem** | **Planned** | Sandboxed third-party widget extensions via the `KikoModule` protocol. |
-
-> [!NOTE]
-> **Camera / Mirror features are deliberately excluded.** Kiko Notch will never access or activate the FaceTime HD camera.
-
----
-
-## 4. Screenshots and Demo
-
-Real interface screenshots and animated demonstrations will be published here as the visual styling, window animations, and tab layouts reach stable production polish.
-
-*Official Monochrome Logo Asset:*
-<p align="left">
-  <img src="assets/logo.png" alt="Kiko Notch Logo" width="80" />
-</p>
-
----
-
-## 5. Requirements
-
-- **Operating System**: macOS 13.0 (Ventura) or later (macOS 14 Sonoma and macOS 15 Sequoia recommended).
-- **Architecture**: Apple Silicon (M1/M2/M3/M4) native, Intel (x86_64) supported.
-- **Development Toolchain**:
-  - Swift 5.9+ / Swift 6.0 compiler
-  - Xcode 15.0+ or macOS Command Line Tools 27.0+
-
----
-
-## 6. Building and Running
-
-You can compile and run Kiko Notch directly from terminal using the Swift Package Manager.
-
-### Clone the Repository
+### Build with Swift Package Manager
 ```bash
-git clone https://github.com/rtomswastaken/kiko-notch.git
-cd kiko-notch
+swift build -c release
 ```
 
-### Build for Release
-To build the optimized release binary:
+### Build and Package `.app` Bundle
+The repository includes a packaging script that builds the binary, creates the bundle structure, and applies local entitlements:
 ```bash
-swift build -c release --product KikoNotch
+./Scripts/package_app.sh release
+```
+The compiled bundle will be available at `.build/release/KikoNotch.app`.
+
+### Launch the Application
+```bash
+open .build/release/KikoNotch.app
 ```
 
-### Run the Application
-```bash
-swift run -c release KikoNotch
-```
+## Running Tests
 
-### Run Test Suite
-To verify the automated test suites:
+Run the full automated test suite using SPM:
 ```bash
 swift run KikoNotchTests
 ```
-*(All 16 test suites, totaling 105 tests, run in < 0.5s)*
+The test suite includes 19 test suites and 177 unit tests covering media detection, palette extraction, system metrics sampling, file shelf interactions, and navigation.
 
----
+## Architecture
 
-## 7. Known Limitations
+The project is structured into three main modules:
 
-As an active Proof of Concept, Kiko Notch has the following known constraints:
+- `Sources/KikoNotchKit`: Core business logic, hardware telemetry services, media controller, accent theme manager, and SwiftUI views.
+- `Sources/KikoNotchApp`: Application delegate, window controller management, status bar items, and AppKit entry point.
+- `Tests/KikoNotchTests`: Comprehensive test suites for unit testing, mocks, and lifecycle verification.
 
-1. **Automation Permissions**: Media controls for Spotify and Apple Music rely on AppleScript. macOS will prompt you once to grant automation permissions under *System Settings > Privacy & Security > Automation*.
-2. **GPU Metric Restrictions**: On Apple Silicon, system-wide instantaneous GPU execution load is governed by private IOKit / Apple Silicon entitlements. Kiko Notch displays GPU device details and memory truthfully, while marking real-time core utilization as unavailable rather than fabricating fake numbers.
-3. **macOS Notification Sandboxing**: macOS strictly isolates third-party application notifications. Kiko Notch presents internal system HUDs and alerts, but does not intercept arbitrary third-party banners without insecure private APIs.
-4. **Display Geometry Variations**: Apple has produced multiple notch dimensions across the 14" MacBook Pro, 16" MacBook Pro, and 13"/15" MacBook Air lineups. Island padding and offset fine-tuning can be adjusted in *Settings > Displays*.
+```
+Sources/KikoNotchKit/
+├── AI/                 # AI provider connectors, quota models, and WakaTime integration
+├── Appearance/         # AccentThemeManager, DesignTokens, NotchShape, and themes
+├── Core/               # AppLifecycle, IslandWindowController, Volume/Brightness managers
+├── FileShelf/          # FileShelfManager, Drag-and-drop destination, and AirDrop handoff
+├── Media/              # MediaController, ArtworkColorExtractor, and AudioSignalMonitor
+├── Navigation/         # IslandNavigation coordinator and tab definitions
+├── Sensors/            # BatteryMonitor and hardware listeners
+├── Settings/           # Settings views, HUD settings, and configuration persistence
+├── SystemHUD/          # SystemHUDManager for volume/brightness/backlight overlays
+├── SystemMetrics/      # Mach kernel telemetry service, SMC, and metric providers
+└── Views/              # SwiftUI views for collapsed, expanded, and tabbed island layouts
+```
 
----
+## Known Limitations
 
-## 8. Roadmap
+- **Apple Silicon GPU Utilization**: macOS restricts real-time per-core GPU execution load behind private Apple Silicon entitlements. Kiko Notch displays GPU device specifications and unified memory attributes, but marks instantaneous GPU core load as unavailable rather than estimating false values.
+- **Automation Permissions**: Media controls for Spotify and Apple Music require AppleScript permissions under System Settings > Privacy & Security > Automation.
+- **Microphone / Screen Recording Permissions**: Audio spectrum analysis requires appropriate system audio permissions when monitoring system audio streams.
 
-- [ ] Complete UI polish and responsive layout transitions for all MacBook screen sizes.
-- [ ] Refine audio visualizer frequency smoothing with low-power Accelerate/vDSP transforms.
-- [ ] Add pre-built `.dmg` and `.zip` distribution packages via GitHub Releases.
-- [ ] Code signing and notarization automation for gatekeeper-friendly installation.
-- [ ] Expand Calendar & Reminders interactive actions (mark complete, join meeting link).
-- [ ] Finalize custom theme editor with live preview and JSON theme sharing.
+## License
 
----
-
-## 9. Contributing
-
-Contributions, feedback, and bug reports are warmly welcome! Because Kiko Notch is an active experiment:
-
-1. **Check existing issues** before submitting new bug reports or feature requests.
-2. **Open a Discussion or Issue** for major architectural proposals before writing large pull requests.
-3. Ensure all automated tests compile and pass cleanly (`swift run KikoNotchTests`) before submitting a PR.
-4. Please follow the codebase style: standard Swift formatting, descriptive commit messages, and zero unnecessary dependencies.
-
----
-
-## 10. License
-
-Kiko Notch is licensed under the **GNU General Public License v3.0** (GPLv3).  
-See the [LICENSE](LICENSE) file for full details.
-
-Portions of window layout and notch detection logic are derived from or inspired by open-source macOS island experiments, including [Boring Notch](https://github.com). All respective copyrights and licenses are acknowledged and preserved.
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
