@@ -16,6 +16,7 @@ public struct IslandCollapsedView: View {
     @ObservedObject public var interactionManager = InteractionManager.shared
     @ObservedObject public var themeManager = ThemeManager.shared
     @ObservedObject public var accentTheme = AccentThemeManager.shared
+    @ObservedObject public var indicatorManager = NotchIndicatorManager.shared
 
     public var mode: IslandPresentationMode
     public var isHovered: Bool
@@ -93,8 +94,19 @@ public struct IslandCollapsedView: View {
             }
             .frame(height: baseNotchHeight)
 
-            // Temporary Track Title Announcement directly beneath physical notch
-            if mediaController.isShowingTitleBanner && isPlaying {
+            // Under-Notch Presentation Slot (Contextual Indicator or Media Title Announcement)
+            if indicatorManager.isVisible {
+                HStack {
+                    Spacer()
+                    NotchProgressBarView(level: indicatorManager.currentLevel)
+                    Spacer()
+                }
+                .frame(height: 22)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: -4)),
+                    removal: .opacity
+                ))
+            } else if mediaController.isShowingTitleBanner && isPlaying {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(accentTheme.horizontalGradient)

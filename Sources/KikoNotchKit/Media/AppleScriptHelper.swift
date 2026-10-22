@@ -1,7 +1,7 @@
 import Foundation
 
 /// Asynchronous AppleScript helper running scripts off the main thread with NSAppleEventDescriptor returns.
-/// Adapted from Boring Notch for high-performance zero-hang scripting.
+/// High-performance zero-hang AppleScript executor for media session queries.
 public final class AppleScriptHelper: Sendable {
     @discardableResult
     public class func execute(_ scriptText: String) async throws -> NSAppleEventDescriptor? {

@@ -37,15 +37,17 @@ for BUNDLE in "$APP_BUNDLE" "$RELEASE_APP_BUNDLE"; do
     chmod +x "$BUNDLE/Contents/MacOS/KikoNotch"
     
     # Copy logo asset if available
-    if [ -f "$ROOT_DIR/assets/logo.png" ]; then
-        cp "$ROOT_DIR/assets/logo.png" "$BUNDLE/Contents/Resources/AppIcon.png"
-    fi
-    if [ -d "$ROOT_DIR/assets" ]; then
-        cp -R "$ROOT_DIR/assets" "$BUNDLE/Contents/Resources/"
-    fi
-    if [ -f "$ROOT_DIR/assets/kiko_logo_clean.png" ]; then
-        cp "$ROOT_DIR/assets/kiko_logo_clean.png" "$BUNDLE/Contents/Resources/"
-    fi
+    for ASSET_DIR in "$ROOT_DIR/Assets" "$ROOT_DIR/assets"; do
+        if [ -f "$ASSET_DIR/logo.png" ]; then
+            cp "$ASSET_DIR/logo.png" "$BUNDLE/Contents/Resources/AppIcon.png"
+        fi
+        if [ -d "$ASSET_DIR" ]; then
+            cp -R "$ASSET_DIR" "$BUNDLE/Contents/Resources/"
+        fi
+        if [ -f "$ASSET_DIR/kiko_logo_clean.png" ]; then
+            cp "$ASSET_DIR/kiko_logo_clean.png" "$BUNDLE/Contents/Resources/"
+        fi
+    done
     
     # Generate Info.plist
     cat <<EOF > "$BUNDLE/Contents/Info.plist"

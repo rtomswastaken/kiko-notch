@@ -67,6 +67,7 @@ public final class AppLifecycle: ObservableObject, @unchecked Sendable {
         Task { @MainActor in
             VolumeManager.shared.refresh()
             BrightnessManager.shared.refresh()
+            NotchIndicatorManager.shared.start()
         }
 
         // Initialize Window Controller synchronously on main thread
@@ -90,6 +91,8 @@ public final class AppLifecycle: ObservableObject, @unchecked Sendable {
         InteractionManager.shared.onOpenSettings = {
             SettingsWindowController.shared.showSettings()
         }
+
+        setupAutomationCommandListener()
 
         NotificationCenter.default.post(name: NSNotification.Name("KikoAppDidFinishLaunching"), object: nil)
 
@@ -127,6 +130,68 @@ public final class AppLifecycle: ObservableObject, @unchecked Sendable {
         } else {
             DispatchQueue.main.sync {
                 _ = NSApplication.shared.setActivationPolicy(policy)
+            }
+        }
+    }
+
+    private func setupAutomationCommandListener() {
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.kikonotch.action"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let command = notification.userInfo?["command"] as? String else { return }
+            Task { @MainActor in
+                switch command {
+                case "expand":
+                    InteractionManager.shared.expand()
+                case "collapse":
+                    InteractionManager.shared.collapse()
+                case "selectTab":
+                    if let tabName = notification.userInfo?["tab"] as? String,
+                       let tab = IslandTab.pageTabs.first(where: { $0.rawValue.lowercased() == tabName.lowercased() || $0.title.lowercased() == tabName.lowercased() }) {
+                        InteractionManager.shared.expand()
+                        IslandNavigationModel.shared.selectTab(tab)
+                    }
+                case "showVolume":
+                    let level = (notification.userInfo?["level"] as? NSNumber)?.floatValue ?? 0.65
+                    NotchIndicatorManager.shared.simulateVolumeChange(level: level)
+                case "showBrightness":
+                    let level = (notification.userInfo?["level"] as? NSNumber)?.floatValue ?? 0.55
+                    NotchIndicatorManager.shared.simulateBrightnessChange(level: level)
+                case "simulateMedia":
+                    let title = notification.userInfo?["title"] as? String ?? "Midnight City"
+                    let artist = notification.userInfo?["artist"] as? String ?? "M83"
+                    let album = notification.userInfo?["album"] as? String ?? "Hurry Up, We're Dreaming"
+
+                    let size = NSSize(width: 300, height: 300)
+                    let img = NSImage(size: size)
+                    img.lockFocus()
+                    let gradient = NSGradient(colors: [
+                        NSColor(red: 0.18, green: 0.48, blue: 0.96, alpha: 1.0),
+                        NSColor(red: 0.68, green: 0.18, blue: 0.88, alpha: 1.0),
+                        NSColor(red: 0.96, green: 0.38, blue: 0.28, alpha: 1.0)
+                    ])
+                    gradient?.draw(in: NSRect(origin: .zero, size: size), angle: 45)
+                    img.unlockFocus()
+
+                    let tiff = img.tiffRepresentation
+                    let pngData = tiff.flatMap { NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:]) }
+
+                    let meta = MediaMetadata(
+                        title: title,
+                        artist: artist,
+                        album: album,
+                        duration: 243,
+                        elapsedTime: 84,
+                        isPlaying: true,
+                        playerApp: "Apple Music",
+                        artworkData: pngData
+                    )
+                    MediaController.shared.publishMetadata(meta)
+                default:
+                    break
+                }
             }
         }
     }

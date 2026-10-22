@@ -224,4 +224,95 @@ private final class TestBox<T>: @unchecked Sendable {
         manager.channel = .beta
         XCTAssertEqual(manager.channel, .beta)
     }
+
+    // MARK: - Section 21: Native Under-Notch Volume & Brightness Indicator Tests
+
+    @MainActor
+    func testNotchIndicatorVolumeUpdateAndMute() {
+        let indicator = NotchIndicatorManager.shared
+        indicator.resetForTesting()
+        indicator.simulateVolumeChange(level: 0.65, isMuted: false)
+
+        XCTAssertTrue(indicator.isVisible)
+        XCTAssertEqual(indicator.activeIndicator, .volume)
+        XCTAssertEqual(indicator.currentLevel, 0.65, accuracy: 0.001)
+
+        // Test mute sets effective level to 0.0
+        indicator.simulateVolumeChange(level: 0.65, isMuted: true)
+        XCTAssertTrue(indicator.isVisible)
+        XCTAssertEqual(indicator.activeIndicator, .volume)
+        XCTAssertEqual(indicator.currentLevel, 0.0, accuracy: 0.001)
+
+        indicator.stop()
+    }
+
+    @MainActor
+    func testNotchIndicatorBrightnessUpdateAndClamping() {
+        let indicator = NotchIndicatorManager.shared
+        indicator.resetForTesting()
+        indicator.simulateBrightnessChange(level: 0.42)
+
+        XCTAssertTrue(indicator.isVisible)
+        XCTAssertEqual(indicator.activeIndicator, .brightness)
+        XCTAssertEqual(indicator.currentLevel, 0.42, accuracy: 0.001)
+
+        // Test clamping upper bound
+        indicator.simulateBrightnessChange(level: 1.5)
+        XCTAssertEqual(indicator.currentLevel, 1.0, accuracy: 0.001)
+
+        // Test clamping lower bound
+        indicator.simulateBrightnessChange(level: -0.2)
+        XCTAssertEqual(indicator.currentLevel, 0.0, accuracy: 0.001)
+
+        indicator.stop()
+    }
+
+    @MainActor
+    func testNotchIndicatorPriorityPolicy() {
+        let indicator = NotchIndicatorManager.shared
+        indicator.resetForTesting()
+
+        // Volume changed first
+        indicator.simulateVolumeChange(level: 0.80, isMuted: false)
+        XCTAssertEqual(indicator.activeIndicator, .volume)
+        XCTAssertEqual(indicator.currentLevel, 0.80, accuracy: 0.001)
+
+        // Brightness changed immediately afterward -> takes precedence
+        indicator.simulateBrightnessChange(level: 0.35)
+        XCTAssertEqual(indicator.activeIndicator, .brightness)
+        XCTAssertEqual(indicator.currentLevel, 0.35, accuracy: 0.001)
+        XCTAssertTrue(indicator.isVisible)
+
+        indicator.stop()
+    }
+
+    @MainActor
+    func testNotchIndicatorCoordinationWithMediaBanner() {
+        let indicator = NotchIndicatorManager.shared
+        let media = MediaController.shared
+        indicator.resetForTesting()
+
+        // Trigger media title banner
+        media.triggerTitleBanner()
+        XCTAssertTrue(media.isShowingTitleBanner)
+
+        // Trigger volume indicator change
+        indicator.simulateVolumeChange(level: 0.50, isMuted: false)
+
+        // Title banner must be immediately dismissed and replaced by progress bar
+        XCTAssertFalse(media.isShowingTitleBanner)
+        XCTAssertTrue(indicator.isVisible)
+        XCTAssertEqual(indicator.activeIndicator, .volume)
+
+        indicator.stop()
+    }
+
+    @MainActor
+    func testNotchIndicatorGeometryExtension() {
+        let standardSize = IslandGeometry.getClosedNotchSize(isPlayingMedia: false, isShowingIndicator: false)
+        let indicatorSize = IslandGeometry.getClosedNotchSize(isPlayingMedia: false, isShowingIndicator: true)
+
+        XCTAssertEqual(indicatorSize.height, standardSize.height + 22.0, accuracy: 0.01)
+        XCTAssertGreaterThanOrEqual(indicatorSize.width, 200.0)
+    }
 }

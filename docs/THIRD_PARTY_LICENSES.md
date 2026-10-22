@@ -8,7 +8,7 @@ Kiko Notch incorporates foundational components, architectural patterns, and siz
 
 - **Project**: Boring Notch
 - **Authors**: Harsh Vardhan Goswami, Alexander, TheBoredTeam
-- **Repository / Source Reference**: `/Users/rtoms/Documents/boring notch`
+- **Repository**: https://github.com/TheBoredTeam/boring.notch
 - **License**: GNU General Public License v3.0 (GPLv3)
 - **Copyright**: Copyright © 2024 Harsh Vardhan Goswami, Alexander, TheBoredTeam
 

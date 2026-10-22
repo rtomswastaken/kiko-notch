@@ -11,7 +11,10 @@ DerivedData/
 *.xcworkspace
 *.xcuserdata/
 
-# Local databases & logs
+# Archives
+*.zip
+*.tar.gz
+*.dmg
 *.sqlite3
 *.sqlite3-journal
 *.log

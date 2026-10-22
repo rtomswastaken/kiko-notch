@@ -14,6 +14,7 @@ public struct IslandContainerView: View {
     @ObservedObject public var displayManager = DisplayManager.shared
     @ObservedObject public var themeManager = ThemeManager.shared
     @ObservedObject public var mediaController = MediaController.shared
+    @ObservedObject public var indicatorManager = NotchIndicatorManager.shared
 
     @State private var isHovering = false
     @State private var hoverTask: Task<Void, Never>?
@@ -46,7 +47,8 @@ public struct IslandContainerView: View {
             return IslandGeometry.getClosedNotchSize(
                 for: displayManager.targetScreen,
                 isPlayingMedia: mediaController.currentMedia.isPlaying,
-                isShowingTitleBanner: mediaController.isShowingTitleBanner
+                isShowingTitleBanner: mediaController.isShowingTitleBanner,
+                isShowingIndicator: indicatorManager.isVisible
             )
         }
     }
@@ -74,6 +76,20 @@ public struct IslandContainerView: View {
                         .frame(height: 1)
                         .padding(.horizontal, currentTopRadius)
                 }
+                .overlay(alignment: .top) {
+                    // Native progress bar directly beneath physical notch when island is expanded
+                    if isExpanded && indicatorManager.isVisible {
+                        let baseHeight = IslandGeometry.getClosedNotchSize(for: displayManager.targetScreen).height
+                        VStack(spacing: 0) {
+                            Color.clear.frame(height: baseHeight + 6)
+                            NotchProgressBarView(level: indicatorManager.currentLevel)
+                        }
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .offset(y: -4)),
+                            removal: .opacity
+                        ))
+                    }
+                }
                 .shadow(
                     color: isExpanded ? Color.black.opacity(0.7) : (isHovering ? Color.black.opacity(0.4) : Color.clear),
                     radius: isExpanded ? 12 : 4,
@@ -93,6 +109,7 @@ public struct IslandContainerView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.8, blendDuration: 0), value: isExpanded)
         .animation(.spring(response: 0.38, dampingFraction: 0.8, blendDuration: 0), value: mediaController.currentMedia.isPlaying)
         .animation(.spring(response: 0.38, dampingFraction: 0.8, blendDuration: 0), value: mediaController.isShowingTitleBanner)
+        .animation(.spring(response: 0.38, dampingFraction: 0.8, blendDuration: 0), value: indicatorManager.isVisible)
         .preferredColorScheme(.dark)
     }
 

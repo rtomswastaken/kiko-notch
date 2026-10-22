@@ -26,7 +26,7 @@ public struct AboutSettingsView: View {
                 Text("Open Source Foundation & Licensing")
                     .font(.system(size: 13, weight: .semibold))
 
-                Text("Kiko Notch is built on the open-source Boring Notch foundation under the GNU General Public License v3.0 (GPLv3). Special thanks and attribution to The Bored Team (https://github.com/TheBoredTeam/boring.notch).")
+                Text("Kiko Notch is licensed under the GNU General Public License v3.0 (GPLv3). Portions derived from open-source macOS island architectures; see THIRD_PARTY_LICENSES.md for full acknowledgements and attribution.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)

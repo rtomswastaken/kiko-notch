@@ -4,7 +4,7 @@ import SwiftUI
 import Combine
 
 /// Native AppKit Window and Panel Controller for Kiko Notch Floating Island
-/// Built on the Boring Notch window foundation (fixed top-anchored panel).
+/// Fixed top-anchored floating panel controller.
 @MainActor
 public final class IslandWindowController: NSObject, ObservableObject {
     public static let shared = IslandWindowController()
@@ -56,7 +56,7 @@ public final class IslandWindowController: NSObject, ObservableObject {
         panel.setIsVisible(true)
         panel.orderFrontRegardless()
 
-        NSLog("[Kiko Notch] Boring-Notch foundation window presented at \(panel.frame)")
+        NSLog("[Kiko Notch] Island window presented at \(panel.frame)")
 
         setupBindings()
     }

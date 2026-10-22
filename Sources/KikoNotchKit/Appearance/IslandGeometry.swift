@@ -63,16 +63,22 @@ public struct IslandGeometry {
         return CGSize(width: max(notchWidth, minCollapsedWidth), height: max(notchHeight, minCollapsedHeight))
     }
 
-    /// Returns the detected hardware closed notch size for a given screen, expanding when media is playing
-    /// or temporarily expanding vertically beneath the notch when a new track title banner is displayed.
+    /// Returns the detected hardware closed notch size for a given screen, expanding when media is playing,
+    /// temporarily expanding vertically beneath the notch when a volume/brightness indicator is active,
+    /// or when a new track title banner is displayed.
     @MainActor
     public static func getClosedNotchSize(
         for screen: NSScreen? = nil,
         isPlayingMedia: Bool = false,
-        isShowingTitleBanner: Bool = false
+        isShowingTitleBanner: Bool = false,
+        isShowingIndicator: Bool = false
     ) -> CGSize {
         let base = getClosedNotchSize(for: screen)
-        if isShowingTitleBanner && isPlayingMedia {
+        if isShowingIndicator {
+            let width = isPlayingMedia ? min(base.width + 96.0, maxCollapsedWidth) : max(base.width, 210.0)
+            let height = base.height + 22.0
+            return CGSize(width: width, height: height)
+        } else if isShowingTitleBanner && isPlayingMedia {
             let bannerWidth = min(max(base.width + 120.0, 380.0), 440.0)
             let bannerHeight = base.height + 28.0
             return CGSize(width: bannerWidth, height: bannerHeight)

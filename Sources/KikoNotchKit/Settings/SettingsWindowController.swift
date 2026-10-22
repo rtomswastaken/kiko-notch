@@ -63,7 +63,7 @@ public struct SettingsRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 640, idealWidth: 700, minHeight: 480, idealHeight: 560)
+        .frame(minWidth: 640, idealWidth: 720, minHeight: 520, idealHeight: 640)
         .environment(\.colorScheme, .dark)
     }
 }
@@ -74,7 +74,7 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
     
     public init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 640),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false

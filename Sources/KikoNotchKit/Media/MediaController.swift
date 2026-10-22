@@ -159,7 +159,7 @@ public final class MediaController: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func publishMetadata(_ meta: MediaMetadata) {
+    public func publishMetadata(_ meta: MediaMetadata) {
         let palette = ArtworkColorExtractor.shared.extractPalette(
             from: meta.artworkData,
             identifier: "\(meta.playerApp):\(meta.title):\(meta.artist)"
@@ -203,6 +203,7 @@ public final class MediaController: ObservableObject, @unchecked Sendable {
     }
 
     public func triggerTitleBanner() {
+        guard !NotchIndicatorManager.shared.isIndicatorVisible else { return }
         titleBannerDismissTask?.cancel()
         withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
             self.isShowingTitleBanner = true
